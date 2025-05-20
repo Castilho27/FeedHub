@@ -26,7 +26,7 @@ export default function ProfileContent() {
       {/* Imagem de fundo */}
       <div className="absolute inset-0 -z-10">
         <Image
-          src="/Images/fundo1.png"
+          src="/Images/Fundo1.png"
           alt="Background"
           fill
           className="object-cover"

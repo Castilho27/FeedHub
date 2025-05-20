@@ -28,7 +28,7 @@ export default function LoginPage() {
       {/* Imagem de fundo */}
       <div className="absolute inset-0 -z-10">
         <Image
-          src="/Images/fundo1.png" // Caminho da sua imagem de fundo
+          src="/Images/Fundo1.png" // Caminho da sua imagem de fundo
           alt="Background"
           fill
           className="object-cover"
@@ -41,7 +41,7 @@ export default function LoginPage() {
         <div className="flex justify-center mb-6">
           <div className="w-48 h-auto relative"> {/* Ajuste o tamanho conforme sua logo original */}
             <Image
-              src="/images/logo1.png" // Caminho da sua logo
+              src="/Images/logo1.png" // Caminho da sua logo
               alt="FeedHub Logo"
               width={192} // Adicione width e height para otimização da imagem
               height={64}

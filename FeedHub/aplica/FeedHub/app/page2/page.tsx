@@ -55,7 +55,7 @@ export default function GameWaitingRoom() {
       {/* Imagem de fundo */}
       <div className="fixed inset-0 -z-10">
         <Image
-          src="/Images/fundo1.png"
+          src="/Images/Fundo1.png"
           alt="Background"
           fill
           className="object-cover"
