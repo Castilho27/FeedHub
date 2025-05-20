@@ -1,4 +1,4 @@
-"use clientgit push --force origin main"
+'use client';
 
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -31,7 +31,7 @@ export default function ProfileContent() {
           fill
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-sky-50/80"></div>
+        <div className="absolute inset-0 bg-sky-50/80" />
       </div>
 
       <div className="z-10 w-full max-w-sm flex flex-col items-center flex-grow">
@@ -72,6 +72,3 @@ export default function ProfileContent() {
     </>
   );
 }
-
-
-Isso aqui ta certo?
