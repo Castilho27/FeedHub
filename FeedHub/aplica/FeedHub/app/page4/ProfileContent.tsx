@@ -1,3 +1,5 @@
+"use clientgit push --force origin main"
+
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import ColorAvatarEditor from "@/components/color-avatar";
