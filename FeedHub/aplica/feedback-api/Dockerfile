@@ -1,5 +1,5 @@
 # Etapa 1: Compilar o projeto
-FROM clojure:openjdk-17-tools-deps as builder
+FROM clojure:temurin-17-tools-deps-slim as builder
 
 WORKDIR /app
 COPY . .
