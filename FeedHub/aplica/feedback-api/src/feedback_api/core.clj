@@ -58,7 +58,7 @@
 (def app
   (-> app-routes
       (wrap-cors
-        :access-control-allow-origin [#"https://feedhub-theta.vercel.app"]
+        :access-control-allow-origin [#"https://feedhub-theta.vercel.app/page2"]
         :access-control-allow-methods [:get :post :put :delete :options]
         :access-control-allow-headers ["Content-Type" "Authorization"])
       (wrap-json-body {:keywords? true :bigdecimals? true})

@@ -4,19 +4,18 @@ FROM clojure:openjdk-17-tools-deps as builder
 WORKDIR /app
 COPY . .
 
-# Gera o uberjar
 RUN lein uberjar
 
-# Etapa 2: Imagem final leve
-FROM openjdk:17-jdk-slim
+# Etapa 2: Imagem final leve e atualizada
+FROM openjdk:17.0.8-jdk-slim
 
 WORKDIR /app
 
-# Copia apenas o JAR gerado
+# Atualiza o sistema para reduzir vulnerabilidades
+RUN apt-get update && apt-get upgrade -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /app/target/feedback-api-standalone.jar .
 
-# Define a porta padrão (usada pelo Jetty)
 EXPOSE 3000
 
-# Comando para rodar o app
 CMD ["java", "-jar", "feedback-api-standalone.jar"]

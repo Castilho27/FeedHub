@@ -10,7 +10,7 @@ export default function Home() {
 
   const handleUserClick = async () => {
     try {
-      const res = await fetch('https://feedhub-theta.vercel.app/api/rooms', {
+      const res = await fetch('https://feedhub-theta.vercel.app/page2', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
