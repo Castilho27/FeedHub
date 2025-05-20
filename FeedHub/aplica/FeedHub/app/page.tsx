@@ -10,12 +10,13 @@ export default function Home() {
 
   const handleUserClick = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/rooms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      const res = await fetch('https://feedhub-theta.vercel.app/api/rooms', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
 
       if (!res.ok) {
         alert('Erro ao criar sala')
@@ -55,7 +56,7 @@ export default function Home() {
         {/* Logo */}
         <div className="mb-2">
           <img 
-            src="/images/logo1.png" 
+            src="/Images/logo1.png" 
             alt="FeedHub Logo" 
             className="h-32 md:h-36"
           />
