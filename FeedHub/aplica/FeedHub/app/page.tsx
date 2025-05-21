@@ -2,38 +2,38 @@
 
 import PinEntry from "@/components/pin-entry"
 import { User } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "next/navigation" 
 import Image from "next/image"
 
 export default function Home() {
-  const router = useRouter()
-
+  const router = useRouter() 
   const handleUserClick = async () => {
     try {
-      const res = await fetch('https://feedhub-theta.vercel.app/page2', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
+      
+      const res = await fetch('http://localhost:3001/api/rooms', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
 
       if (!res.ok) {
-        alert('Erro ao criar sala')
-        return
+        
+        const errorData = await res.json();
+       
+        console.error('Erro ao criar sala:', errorData.message || 'Erro desconhecido', `Status: ${res.status}`); // Log no console para depuração
+        return 
       }
 
       const data = await res.json()
-      const pin = data.pin
+      const pin = data.pin 
 
-      alert(`Sala criada! PIN: ${pin}`)
-
-      // Aqui você pode redirecionar para outra página, se quiser:
-      // router.push(`/professor?sala=${pin}`)
+      
+      console.log(`Sala criada com sucesso! PIN: ${pin}`); 
+      router.push(`/page2?pin=${pin}`) 
 
     } catch (error) {
-      alert('Erro na comunicação com o servidor')
-      console.error(error)
+      console.error('Erro na comunicação com o servidor:', error); 
     }
   }
 
@@ -42,7 +42,7 @@ export default function Home() {
       {/* Imagem de fundo */}
       <div className="fixed inset-0 -z-10">
         <Image
-          src="/Images/Fundo1.png" 
+          src="/Images/Fundo1.png"
           alt="Background"
           layout="fill"
           objectFit="cover"
@@ -55,9 +55,9 @@ export default function Home() {
       <div className="flex flex-col items-center justify-center w-full max-w-xs flex-1 space-y-6 -mt-8">
         {/* Logo */}
         <div className="mb-2">
-          <img 
-            src="/Images/logo1.png" 
-            alt="FeedHub Logo" 
+          <img
+            src="/Images/logo1.png"
+            alt="FeedHub Logo"
             className="h-32 md:h-36"
           />
         </div>
@@ -76,7 +76,7 @@ export default function Home() {
         <span className="text-sm text-[#091e2c] bg-white/80 px-3 py-1 rounded-full shadow-sm">
           Você é professor? Clique aqui
         </span>
-        <button 
+        <button
           onClick={handleUserClick}
           className="transition-transform hover:scale-110 focus:outline-none"
           aria-label="Área do professor"

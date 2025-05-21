@@ -1,29 +1,31 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { LucideClipboard } from "lucide-react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 export default function GameWaitingRoom() {
   const router = useRouter()
-  const [pin, setPin] = useState("000000")
-  const [startIndex, setStartIndex] = useState(0)
-  const studentsPerPage = 5
-  
-  useEffect(() => {
-    generateNewPin()
-  }, [])
+  const searchParams = useSearchParams()
+  const urlPin = searchParams.get('pin')
 
-  const generateNewPin = () => {
-    const randomPin = Math.floor(100000 + Math.random() * 900000).toString()
-    setPin(randomPin.replace(/(\d{3})(\d{3})/, "$1 $2")) 
-  }
+  const [pin, setPin] = useState(urlPin ? urlPin.replace(/(\d{3})(\d{3})/, "$1 $2") : "000000")
+
+  useEffect(() => {
+  }, [urlPin]) 
 
   const handleLogout = () => {
     router.push('/')
+  }
+
+  const handleCopyPin = () => {
+    if (pin) {
+      navigator.clipboard.writeText(pin.replace(/\s/g, ''))
+      console.log(`PIN ${pin} copiado!`); 
+    }
   }
 
   const connectedStudents = [
@@ -36,6 +38,9 @@ export default function GameWaitingRoom() {
     { id: 7, name: "Yasmin", color: "bg-orange-500" },
     { id: 8, name: "Carlos", color: "bg-teal-500" },
   ]
+
+  const studentsPerPage = 5
+  const [startIndex, setStartIndex] = useState(0)
 
   const visibleStudents = connectedStudents.slice(startIndex, startIndex + studentsPerPage)
 
@@ -63,14 +68,13 @@ export default function GameWaitingRoom() {
         <div className="absolute inset-0 bg-sky-50/80"></div>
       </div>
 
-      {/* Header com logo EXTRA grande (40px = h-10, 64px = h-16, 80px = h-20) */}
-      <header className="flex justify-between items-start mb-2"> {/* items-start para alinhar no topo */}
-        <img 
-          src="/Images/logo1.png" 
-          alt="Logo" 
-          className="h-28 w-auto" // Tamanho grande (96px) - Ajuste conforme necessidade
+      <header className="flex justify-between items-start mb-2">
+        <img
+          src="/Images/logo1.png"
+          alt="Logo"
+          className="h-28 w-auto"
         />
-        <div className="flex items-center gap-2 mt-2"> {/* mt-2 para alinhar com a logo */}
+        <div className="flex items-center gap-2 mt-2">
           <span className="font-medium">Área Administrador</span>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             Sair
@@ -78,20 +82,18 @@ export default function GameWaitingRoom() {
         </div>
       </header>
 
-      {/* Conteúdo principal - Ajuste fino de espaçamentos */}
+      {/* Conteúdo principal */}
       <div className="flex-1 flex flex-col gap-3 max-w-md mx-auto w-full">
 
-        {/* Card do PIN - Reduzi apenas o padding vertical */}
-        <Card className="px-4 py-3"> {/* py-3 em vez de py-4 */}
+        {/* Painel do pin */}
+        <Card className="px-4 py-3">
           <h2 className="text-xl font-bold text-center mb-2">PIN da Sala</h2>
-          <div className="text-4xl font-bold text-center bg-sky-50 py-2 rounded-lg mb-2"> {/* mb-2 em vez de mb-3 */}
-            {pin}
+          <div className="text-4xl font-bold text-center bg-sky-50 py-2 rounded-lg mb-2">
+            {pin} {/* O PIN agora vem do estado que é inicializado pela URL */}
           </div>
           <div className="flex gap-2 justify-center">
-            <Button onClick={generateNewPin} size="sm" variant="outline">
-              Gerar Novo PIN
-            </Button>
-            <Button size="sm" variant="outline" className="gap-1">
+            {/* O botão "Gerar Novo PIN" foi removido como solicitado anteriormente */}
+            <Button size="sm" variant="outline" className="gap-1" onClick={handleCopyPin}>
               <LucideClipboard size={16} />
               Copiar
             </Button>
@@ -100,7 +102,7 @@ export default function GameWaitingRoom() {
 
         {/* Card dos Alunos - Ajuste fino */}
         <Card className="p-4 flex-1">
-          <h2 className="text-xl font-bold mb-2 text-center">Alunos Conectados</h2> {/* mb-2 em vez de mb-3 */}
+          <h2 className="text-xl font-bold mb-2 text-center">Alunos Conectados</h2>
           <div className="flex items-center justify-between h-full">
             <button
               onClick={handlePrevious}
@@ -111,7 +113,7 @@ export default function GameWaitingRoom() {
             >
               &lt;
             </button>
-            
+
             <div className="flex justify-center gap-2 flex-1">
               {visibleStudents.map((student) => (
                 <div key={student.id} className="flex flex-col items-center">
@@ -122,7 +124,7 @@ export default function GameWaitingRoom() {
                 </div>
               ))}
             </div>
-            
+
             <button
               onClick={handleNext}
               disabled={!canGoForward}
@@ -136,7 +138,7 @@ export default function GameWaitingRoom() {
         </Card>
 
         {/* Botão de ação - Compactado levemente */}
-        <Button className="w-full py-3 text-base">Iniciar Atividade</Button> {/* py-3 em vez de py-4 */}
+        <Button className="w-full py-3 text-base">Iniciar Atividade</Button>
 
         {/* Menu inferior - Sem alterações */}
         <div className="flex justify-center gap-3">

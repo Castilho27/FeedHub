@@ -32,7 +32,6 @@
      :body {:message "API Feedback Professores"
             :version "0.1.0"}})
 
-  ;; Criar sala — deve ser chamado no frontend em https://feedhub-theta.vercel.app/api/rooms
   (POST "/api/rooms" []
     (let [room (create-room)]
       (resp/response room)))
@@ -53,18 +52,34 @@
       (resp/response {:room room
                       :connections (count (get @active-connections pin []))})
       (resp/not-found {:status "error"
+                       :message "Sala não encontrada"})))
+
+  (GET "/api/rooms/:pin/panel" [pin]
+    (if-let [room (get @rooms pin)]
+      (resp/response {
+        :status "success"
+        :pin pin
+        :room-id (:id room)
+        :created-at (:created-at room)
+        :connections (get @active-connections pin [])
+        :connection_count (count (get @active-connections pin []))
+      })
+      (resp/not-found {:status "error"
                        :message "Sala não encontrada"}))))
 
 (def app
   (-> app-routes
       (wrap-cors
-        :access-control-allow-origin [#"https://feedhub-theta.vercel.app/page2"]
+        :access-control-allow-origin [#"https://feedhub-theta.vercel.app"
+                                     #"https://feedhub-theta.vercel.app/page2"
+                                     #"http://localhost:3000"
+                                     #"http://localhost:3001"]
         :access-control-allow-methods [:get :post :put :delete :options]
         :access-control-allow-headers ["Content-Type" "Authorization"])
       (wrap-json-body {:keywords? true :bigdecimals? true})
       (wrap-json-response)))
 
 (defn -main [& args]
-  (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 3000)]
+  (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 3001)]
     (println (str "Servidor iniciado na porta " port))
     (jetty/run-jetty app {:port port :join? false})))
