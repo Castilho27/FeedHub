@@ -1,49 +1,116 @@
-// app/page3/page.tsx (Sua Página de Login)
 "use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import Image from 'next/image'; // Importe Image para a imagem de fundo
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [userName, setUserName] = useState("");
+  const [roomPin, setRoomPin] = useState<string | null>(null); // Para pegar o PIN da URL
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Cores que podem ser usadas para o avatar do aluno
+  const avatarColors = [
+    "#FF7043", "#FFA726", "#FFCA28", "#FFEE58",
+    "#9CCC65", "#66BB6A", "#26A69A", "#26C6DA",
+    "#29B6F6", "#42A5F5", "#5C6BC0", "#7E57C2",
+    "#AB47BC", "#EC407A", "#EF5350",
+    "#8D6E63", "#78909C", "#A8CFF5"
+  ];
+
+  // Pega o PIN da URL ao carregar a página
+  useEffect(() => {
+    const pinParam = searchParams.get('pin');
+    if (pinParam) {
+      setRoomPin(pinParam);
+      console.log('PIN recebido na page3:', pinParam);
+    } else {
+      // Se não houver PIN na URL, redireciona de volta para a página principal
+      alert('PIN da sala não encontrado. Por favor, digite o PIN na página principal.');
+      router.push('/');
+    }
+  }, [searchParams, router]);
 
   const handleNameInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setUserName(event.target.value);
   };
 
-  const handleProceed = () => {
+  const handleProceed = async () => { // Função agora é assíncrona
     if (userName.trim() === "") {
       alert("Por favor, digite seu nome para continuar!");
       return;
     }
-    router.push(`/page4?name=${encodeURIComponent(userName.trim())}`);
+    if (!roomPin) { // Verifica se o PIN existe antes de prosseguir
+      alert("Erro: PIN da sala não disponível. Tente novamente.");
+      router.push('/');
+      return;
+    }
+
+    // Escolhe uma cor aleatória para o avatar
+    const randomIndex = Math.floor(Math.random() * avatarColors.length);
+    const chosenColor = avatarColors[randomIndex];
+    console.log('Cor do avatar gerada:', chosenColor);
+
+    try {
+      // Faz a requisição POST para o backend para o aluno entrar na sala
+      const res = await fetch(`http://localhost:3001/api/rooms/${roomPin}/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          // O student_id deve ser gerado pelo backend ou ser um identificador único aqui
+          // Por simplicidade, estou usando um ID aleatório aqui.
+          // No backend, você pode gerar um UUID para o student_id.
+          student_id: Math.random().toString(36).substring(2, 15),
+          name: userName.trim(),
+          avatar_color: chosenColor // <-- ENVIANDO A COR AQUI!
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        alert(`Erro ao entrar na sala: ${errorData.message || 'Erro desconhecido'}`);
+        console.error('Erro ao entrar na sala:', errorData);
+        return;
+      }
+
+      const data = await res.json(); // Se o backend retornar algum dado de sucesso
+      console.log('Entrou na sala com sucesso:', data);
+
+      // Redireciona para a page4 com as informações do usuário e do PIN
+      router.push(`/page4?name=${encodeURIComponent(userName.trim())}&pin=${encodeURIComponent(roomPin)}&color=${encodeURIComponent(chosenColor)}`);
+
+    } catch (error) {
+      console.error('Erro na comunicação com o servidor ao entrar na sala:', error);
+      alert('Erro de rede ao tentar entrar na sala. Tente novamente.');
+    }
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden">
       {/* Imagem de fundo */}
       <div className="absolute inset-0 -z-10">
         <Image
-          src="/Images/Fundo1.png" // Caminho da sua imagem de fundo
+          src="/Images/Fundo1.png"
           alt="Background"
           fill
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-sky-50/80"></div> {/* Camada semi-transparente */}
+        <div className="absolute inset-0 bg-sky-50/80"></div>
       </div>
 
       <div className="z-10 w-full max-w-md px-8 py-12 flex flex-col items-center">
         {/* Logo FeedHub */}
         <div className="flex justify-center mb-6">
-          <div className="w-48 h-auto relative"> {/* Ajuste o tamanho conforme sua logo original */}
+          <div className="w-48 h-auto relative">
             <Image
-              src="/Images/logo1.png" // Caminho da sua logo
+              src="/Images/logo1.png"
               alt="FeedHub Logo"
-              width={192} // Adicione width e height para otimização da imagem
+              width={192}
               height={64}
               className="w-full h-auto"
               priority
@@ -60,7 +127,7 @@ export default function LoginPage() {
                        !ring-0 !outline-none !border-none !border-transparent
                        shadow-md
                        placeholder-shown:text-gray-400 placeholder-shown:opacity-100
-                       focus:placeholder-transparent" // Classes para o placeholder sumir e bordas
+                       focus:placeholder-transparent"
             placeholder="Digite seu nome"
             value={userName}
             onChange={handleNameInputChange}

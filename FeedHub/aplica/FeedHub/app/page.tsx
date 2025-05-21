@@ -1,16 +1,53 @@
 'use client'
 
-import PinEntry from "@/components/pin-entry"
 import { User } from "lucide-react"
-import { useRouter } from "next/navigation" 
+import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { useState } from "react";
+import { Input } from "@/components/ui/input"; // Importe Input
+import { Button } from "@/components/ui/button"; // Importe Button
 
 export default function Home() {
-  const router = useRouter() 
-  const handleUserClick = async () => {
+  const router = useRouter()
+  const [studentPin, setStudentPin] = useState<string>('');
+
+  const handleStudentPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericPin = e.target.value.replace(/\D/g, '').substring(0, 6);
+    setStudentPin(numericPin);
+  };
+
+  const handleStudentEntry = async () => {
+    if (studentPin.trim() === '' || studentPin.trim().length !== 6) {
+      alert('Por favor, digite um PIN de 6 dígitos válido para a sala.');
+      return;
+    }
     try {
-      
-      const res = await fetch('http://localhost:3001/api/rooms', { 
+      // Endpoint para verificar se a sala existe (GET)
+      const res = await fetch(`http://localhost:3001/api/rooms/${studentPin}/status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        alert(`Erro ao verificar PIN: ${errorData.message || 'PIN inválido ou sala não encontrada.'}`);
+        console.error('Erro ao verificar PIN:', errorData.message || 'PIN inválido ou sala não encontrada.', `Status: ${res.status}`);
+        return;
+      }
+
+      // Se o PIN for válido e a sala existir, redireciona para a página 3 para digitar o nome
+      router.push(`/page3?pin=${encodeURIComponent(studentPin.trim())}`);
+    } catch (error) {
+      console.error('Erro na comunicação com o servidor ao verificar PIN:', error);
+      alert('Erro de rede ao tentar verificar o PIN. Tente novamente.');
+    }
+  };
+
+  const handleProfessorClick = async () => {
+    try {
+      const res = await fetch('http://localhost:3001/api/rooms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -18,27 +55,23 @@ export default function Home() {
       })
 
       if (!res.ok) {
-        
         const errorData = await res.json();
-       
-        console.error('Erro ao criar sala:', errorData.message || 'Erro desconhecido', `Status: ${res.status}`); // Log no console para depuração
-        return 
+        console.error('Erro ao criar sala:', errorData.message || 'Erro desconhecido', `Status: ${res.status}`);
+        return
       }
 
       const data = await res.json()
-      const pin = data.pin 
+      const pin = data.pin
 
-      
-      console.log(`Sala criada com sucesso! PIN: ${pin}`); 
-      router.push(`/page2?pin=${pin}`) 
-
+      console.log(`Sala criada com sucesso! PIN: ${pin}`);
+      router.push(`/page2?pin=${pin}`)
     } catch (error) {
-      console.error('Erro na comunicação com o servidor:', error); 
+      console.error('Erro na comunicação com o servidor:', error);
     }
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-4 md:p-8 relative">
+    <main className="flex min-h-screen w-screen flex-col items-center justify-center relative overflow-hidden">
       {/* Imagem de fundo */}
       <div className="fixed inset-0 -z-10">
         <Image
@@ -51,8 +84,8 @@ export default function Home() {
         <div className="absolute inset-0 bg-[#e9f2fc] opacity-90"></div>
       </div>
 
-      {/* Conteúdo principal */}
-      <div className="flex flex-col items-center justify-center w-full max-w-xs flex-1 space-y-6 -mt-8">
+      {/* Conteúdo principal: Centralizado horizontal e verticalmente */}
+      <div className="z-10 w-full max-w-xs flex flex-col items-center space-y-6">
         {/* Logo */}
         <div className="mb-2">
           <img
@@ -62,8 +95,31 @@ export default function Home() {
           />
         </div>
 
-        {/* Componente PIN */}
-        <PinEntry />
+        {/* Componente de entrada de PIN do Aluno */}
+        <div className="w-full bg-white rounded-xl p-6 shadow-lg text-center">
+            <h2 className="text-xl font-semibold text-[#091e2c] mb-4">Ajude a melhorar suas aulas!</h2>
+            <p className="text-gray-600 mb-6">Responda Anonimamente</p>
+            <Input
+                className="w-full py-3 px-4 text-center text-gray-600 text-lg rounded-lg
+                           border-2 border-gray-300
+                           focus:ring-0 focus:outline-none focus:border-blue-500
+                           !ring-0 !outline-none !border-none !border-transparent
+                           shadow-md
+                           placeholder-shown:text-gray-400 placeholder-shown:opacity-100
+                           focus:placeholder-transparent"
+                placeholder="Digite o PIN da sala"
+                value={studentPin}
+                onChange={handleStudentPinChange}
+                maxLength={6}
+                type="tel" // Adicionado type="tel" para teclado numérico em mobiles
+            />
+            <Button
+                onClick={handleStudentEntry}
+                className="w-full mt-4 py-3 bg-[#091E2C] hover:bg-[#132A3C] text-white rounded-lg text-lg font-medium"
+            >
+                Entrar
+            </Button>
+        </div>
 
         {/* Rodapé */}
         <div className="text-center text-[#091e2c] text-sm mt-4">
@@ -71,13 +127,13 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Botão do professor com texto */}
+      {/* Botões de navegação lateral (fora do container principal para não interferir na centralização dele) */}
       <div className="absolute bottom-8 right-4 md:right-8 z-10 flex items-center gap-2">
         <span className="text-sm text-[#091e2c] bg-white/80 px-3 py-1 rounded-full shadow-sm">
           Você é professor? Clique aqui
         </span>
         <button
-          onClick={handleUserClick}
+          onClick={handleProfessorClick}
           className="transition-transform hover:scale-110 focus:outline-none"
           aria-label="Área do professor"
         >
