@@ -3,7 +3,7 @@
             [compojure.core :refer [defroutes GET POST]]
             [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
             [ring.middleware.cors :refer [wrap-cors]]
-            [ring.util.response :refer [not-found response]] ;
+            [ring.util.response :refer [not-found response]]
             [clj-time.core :as time]
             [clj-time.coerce :as coerce]))
 
@@ -35,18 +35,21 @@
 
   (POST "/api/rooms" []
     (let [room (create-room)]
-      (response room))) ; <--- SEM 'resp/'
+      (response room)))
 
   (POST "/api/rooms/:pin/join" [pin :as req]
     (let [student-id (get-in req [:body :student-id])
-          student-name (get-in req [:body :name])]
+          student-name (get-in req [:body :name])
+          avatar-color (get-in req [:body :avatar_color])]
       (if-let [room (get @rooms pin)]
         (do
           (swap! rooms update-in [pin :connected-students]
                  (fn [students]
                    (if (some #(= student-id (:student-id %)) students)
                      students
-                     (conj students {:student-id student-id :name student-name}))))
+                     (conj students {:student-id student-id
+                                     :name student-name
+                                     :avatar_color avatar-color}))))
 
           (swap! active-connections update pin (fnil conj [])
                  {:user-agent (get-in req [:headers "user-agent"])
@@ -55,36 +58,35 @@
                   :name student-name})
 
           (response {:status "success"
-                          :room-id (:id room)
-                          :message "Joined room successfully"}))
+                     :room-id (:id room)
+                     :message "Joined room successfully"}))
         (not-found {:status "error"
-                         :message "PIN inválido ou sala não encontrada"})))) ; <--- SEM 'resp/'
+                    :message "PIN inválido ou sala não encontrada"}))))
 
   (GET "/api/rooms/:pin" [pin]
     (if-let [room (get @rooms pin)]
       (response {:room room
-                      :connections (count (get @active-connections pin []))})
+                 :connections (count (get @active-connections pin []))})
       (not-found {:status "error"
-                       :message "Sala não encontrada"}))) ; <--- SEM 'resp/'
+                  :message "Sala não encontrada"})))
 
   (GET "/api/rooms/:pin/panel" [pin]
     (if-let [room (get @rooms pin)]
-      (response {
-        :status "success"
-        :pin pin
-        :room-id (:id room)
-        :created-at (:created-at room)
-        :connected-students (:connected-students room)
-        :connection_count (count (:connected-students room))
-      })
+      (response {:status "success"
+                 :pin pin
+                 :room-id (:id room)
+                 :created-at (:created-at room)
+                 :connected-students (:connected-students room)
+                 :connection_count (count (:connected-students room))})
       (not-found {:status "error"
-                       :message "Sala não encontrada"}))) ; <--- SEM 'resp/'
+                  :message "Sala não encontrada"})))
 
   (GET "/api/rooms/:pin/status" [pin]
     (if (contains? @rooms pin)
-      (response{:status "success" :message "PIN válido e sala encontrada"}) ; <--- USANDO 'ok' DIRETAMENTE
-      (not-found {:status "error" :message "PIN inválido ou sala não encontrada"}))) ; <--- SEM 'resp/'
-  )
+      (response {:status "success"
+                 :message "PIN válido e sala encontrada"})
+      (not-found {:status "error"
+                  :message "PIN inválido ou sala não encontrada"}))))
 
 (def app
   (-> app-routes

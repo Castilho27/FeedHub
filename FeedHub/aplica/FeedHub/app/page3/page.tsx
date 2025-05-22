@@ -8,7 +8,7 @@ import Image from 'next/image';
 
 export default function LoginPage() {
   const [userName, setUserName] = useState("");
-  const [roomPin, setRoomPin] = useState<string | null>(null); // Para pegar o PIN da URL
+  const [roomPin, setRoomPin] = useState<string | null>(null); 
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -38,36 +38,30 @@ export default function LoginPage() {
     setUserName(event.target.value);
   };
 
-  const handleProceed = async () => { // Função agora é assíncrona
+  const handleProceed = async () => { 
     if (userName.trim() === "") {
       alert("Por favor, digite seu nome para continuar!");
       return;
     }
-    if (!roomPin) { // Verifica se o PIN existe antes de prosseguir
+    if (!roomPin) { 
       alert("Erro: PIN da sala não disponível. Tente novamente.");
       router.push('/');
       return;
-    }
-
-    // Escolhe uma cor aleatória para o avatar
+    } 
     const randomIndex = Math.floor(Math.random() * avatarColors.length);
     const chosenColor = avatarColors[randomIndex];
     console.log('Cor do avatar gerada:', chosenColor);
 
     try {
-      // Faz a requisição POST para o backend para o aluno entrar na sala
       const res = await fetch(`http://localhost:3001/api/rooms/${roomPin}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          // O student_id deve ser gerado pelo backend ou ser um identificador único aqui
-          // Por simplicidade, estou usando um ID aleatório aqui.
-          // No backend, você pode gerar um UUID para o student_id.
           student_id: Math.random().toString(36).substring(2, 15),
           name: userName.trim(),
-          avatar_color: chosenColor // <-- ENVIANDO A COR AQUI!
+          avatar_color: chosenColor 
         })
       });
 
@@ -78,10 +72,8 @@ export default function LoginPage() {
         return;
       }
 
-      const data = await res.json(); // Se o backend retornar algum dado de sucesso
+      const data = await res.json(); 
       console.log('Entrou na sala com sucesso:', data);
-
-      // Redireciona para a page4 com as informações do usuário e do PIN
       router.push(`/page4?name=${encodeURIComponent(userName.trim())}&pin=${encodeURIComponent(roomPin)}&color=${encodeURIComponent(chosenColor)}`);
 
     } catch (error) {
