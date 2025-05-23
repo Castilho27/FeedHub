@@ -140,22 +140,6 @@ export default function ProfileContent() {
             Aguardando o professor iniciar a sessão...
           </p>
 
-          {/* MANTENHA A LISTA DE ALUNOS AQUI PARA DEPURAR, POR FAVOR. */}
-          <div className="w-full mt-4 p-3 bg-gray-100 rounded-lg">
-            <h3 className="text-gray-700 text-md font-semibold mb-2">Alunos Conectados (DEBUG):</h3>
-            {connectedStudents.length > 0 ? (
-              <ul>
-                {connectedStudents.map((student) => (
-                  <li key={student.student_id || Math.random()} className="text-gray-800 text-sm py-1">
-                    {student.name} ({student.student_id || 'ID Nulo'})
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-500 text-sm">Nenhum aluno conectado (aguardando broadcast).</p>
-            )}
-          </div>
-
         </div>
       </div>
     </div>

@@ -77,7 +77,14 @@ export default function GameWaitingRoom() {
       const data = await res.json()
       console.log("Dados iniciais de alunos recebidos do backend (REST):", data)
 
-      setConnectedStudents(data["connected-students"] || [])
+      // Verificação extra para garantir que a cor é uma string válida
+      const studentsWithValidColors = (data["connected-students"] || []).map((s: any) => ({
+        student_id: s["student-id"], // Ajuste para a chave do backend (se necessário, de `student-id` para `student_id`)
+        name: s.name,
+        avatar_color: s["avatar-color"] && typeof s["avatar-color"] === 'string' ? s["avatar-color"] : '#CCCCCC' // Fallback para cinza
+      }));
+
+      setConnectedStudents(studentsWithValidColors);
       setStartIndex(0) // Reinicia a visualização para o começo da lista
     } catch (err: any) {
       console.error("Erro ao buscar alunos inicialmente (REST):", err.message)
@@ -116,7 +123,15 @@ export default function GameWaitingRoom() {
         const message = JSON.parse(event.data)
         if (message.type === "student-list-update") {
           console.log("Lista de alunos atualizada via WebSocket:", message.students)
-          setConnectedStudents(message.students || [])
+          
+          // Verificação extra para garantir que a cor é uma string válida (WebSocket)
+          const studentsWithValidColors = (message.students || []).map((s: any) => ({
+            student_id: s["student-id"], // Ajuste para a chave do backend
+            name: s.name,
+            avatar_color: s["avatar-color"] && typeof s["avatar-color"] === 'string' ? s["avatar-color"] : '#CCCCCC' // Fallback para cinza
+          }));
+
+          setConnectedStudents(studentsWithValidColors);
           setStartIndex(0) // Reinicia a visualização para o começo da lista
         }
       }
