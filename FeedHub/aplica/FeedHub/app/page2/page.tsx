@@ -1,4 +1,5 @@
-"use client"
+// app/page2/page.tsx
+'use client'
 
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
@@ -18,9 +19,8 @@ export default function GameWaitingRoom() {
   const searchParams = useSearchParams()
   const urlPin = searchParams.get("pin")
 
-  const [pin, setPin] = useState(
-    urlPin ? urlPin.replace(/(\d{3})(\d{3})/, "$1 $2") : "000 000"
-  )
+  // Inicializa com valor padrão, será atualizado pelo urlPin
+  const [pin, setPin] = useState("000 000")
   const [connectedStudents, setConnectedStudents] = useState<Student[]>([])
   const [loadingStudents, setLoadingStudents] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -51,7 +51,8 @@ export default function GameWaitingRoom() {
   const canGoBack = startIndex > 0
   const canGoForward = startIndex + studentsPerPage < connectedStudents.length
 
-  const fetchConnectedStudents = useCallback(async () => {
+  // Callback para buscar alunos (usada tanto no início quanto em caso de erro no WS)
+  const fetchInitialConnectedStudents = useCallback(async () => {
     if (!urlPin) {
       setError("PIN da sala não disponível. Por favor, volte para a página inicial.")
       setLoadingStudents(false)
@@ -74,23 +75,85 @@ export default function GameWaitingRoom() {
       }
 
       const data = await res.json()
-      console.log("Dados recebidos do backend:", data)
+      console.log("Dados iniciais de alunos recebidos do backend (REST):", data)
 
       setConnectedStudents(data["connected-students"] || [])
-      setStartIndex(0)
+      setStartIndex(0) // Reinicia a visualização para o começo da lista
     } catch (err: any) {
-      console.error("Erro ao buscar alunos:", err.message)
+      console.error("Erro ao buscar alunos inicialmente (REST):", err.message)
       setError(`Erro ao carregar alunos: ${err.message}`)
     } finally {
       setLoadingStudents(false)
     }
   }, [urlPin])
 
+  // useEffect principal para a conexão WebSocket e fetch inicial
   useEffect(() => {
-    fetchConnectedStudents()
-    const intervalId = setInterval(fetchConnectedStudents, 5000)
-    return () => clearInterval(intervalId)
-  }, [fetchConnectedStudents])
+    let ws: WebSocket | null = null // Inicializa ws como null
+    let intervalId: NodeJS.Timeout | null = null
+
+    // Garante que urlPin existe antes de tentar conectar
+    if (urlPin) {
+      // --- Adicione estes console.log aqui para depuração ---
+      console.log("DEBUG: urlPin no useEffect antes do WS:", urlPin)
+      console.log("DEBUG: Tentando conectar WebSocket com URL:", `ws://localhost:3001/ws/rooms/${urlPin}?student_id=professor`)
+      // --- Fim dos console.log ---
+
+      // Formata o PIN para exibição apenas quando o urlPin estiver disponível
+      setPin(urlPin.replace(/(\d{3})(\d{3})/, "$1 $2"))
+
+      // 1. Inicia a conexão WebSocket
+      // Importante: Usamos um ID de estudante como "professor" para identificar no backend
+      ws = new WebSocket(`ws://localhost:3001/ws/rooms/${urlPin}?student_id=professor`);
+
+      ws.onopen = () => {
+        console.log("WebSocket conectado para o professor:", urlPin)
+        // Ao conectar o WS, faz o fetch inicial para garantir a lista atual
+        fetchInitialConnectedStudents()
+      }
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data)
+        if (message.type === "student-list-update") {
+          console.log("Lista de alunos atualizada via WebSocket:", message.students)
+          setConnectedStudents(message.students || [])
+          setStartIndex(0) // Reinicia a visualização para o começo da lista
+        }
+      }
+
+      ws.onerror = (err) => {
+        console.error("Erro no WebSocket:", err) // Esta é a linha onde o erro é logado
+        setError("Erro na conexão em tempo real com a sala. Por favor, recarregue a página.")
+        // Em caso de erro no WS, tente buscar novamente via REST como fallback
+        fetchInitialConnectedStudents()
+      }
+
+      ws.onclose = () => {
+        console.log("WebSocket desconectado.")
+      }
+
+      // Remover o setInterval de polling REST aqui
+      // O fetchInitialConnectedStudents é chamado no onopen do WS e como fallback em erro.
+      // intervalId = setInterval(fetchInitialConnectedStudents, 5000); // Comente ou remova
+    } else {
+      console.warn("DEBUG: urlPin não disponível no momento da inicialização do useEffect.");
+      // Se não há PIN na URL na primeira renderização, trata o erro
+      setError("PIN da sala não disponível. Por favor, volte para a página inicial.")
+      setLoadingStudents(false)
+    }
+
+    // Função de cleanup: fecha o WebSocket e limpa o intervalo se existirem
+    return () => {
+      if (ws) {
+        console.log("Fechando WebSocket para limpeza...")
+        ws.close()
+      }
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+    }
+  }, [urlPin, fetchInitialConnectedStudents]) // A dependência urlPin e fetchInitialConnectedStudents são fundamentais aqui
+
 
   const handleLogout = () => {
     router.push("/")
@@ -98,6 +161,7 @@ export default function GameWaitingRoom() {
 
   const handleCopyPin = () => {
     if (pin) {
+      // Remove espaços antes de copiar
       navigator.clipboard.writeText(pin.replace(/\s/g, ""))
       console.log(`PIN ${pin} copiado!`)
     }
