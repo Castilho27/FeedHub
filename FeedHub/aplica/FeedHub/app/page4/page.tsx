@@ -30,8 +30,15 @@ export default function ProfileContent() {
       console.error("student_id não encontrado na URL para page4.");
     }
 
-    if (pinFromUrl && studentIdFromUrl && (!webSocketRef.current || webSocketRef.current.readyState === WebSocket.CLOSED)) {
-      const ws = new WebSocket(`ws://localhost:3001/ws/rooms/${pinFromUrl}?student_id=${studentIdFromUrl}`);
+    // Estabelece WebSocket se pin e studentId existirem e não estiver conectado
+    if (
+      pinFromUrl &&
+      studentIdFromUrl &&
+      (!webSocketRef.current || webSocketRef.current.readyState === WebSocket.CLOSED)
+    ) {
+      const ws = new WebSocket(
+        `ws://localhost:3001/ws/rooms/${pinFromUrl}?student_id=${studentIdFromUrl}`
+      );
       webSocketRef.current = ws;
 
       ws.onopen = () => {
@@ -40,24 +47,28 @@ export default function ProfileContent() {
 
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        console.log('Mensagem WebSocket recebida:', message);
+        console.log("Mensagem WebSocket recebida:", message);
         
-        if (message.type === 'student-list-update') {
+        if (message.type === "student-list-update") {
           setConnectedStudents(message.students);
         }
 
-        // Alterado para escutar 'activity-started' e redirecionar para page5
-        if (message.type === 'activity-started') {
-          console.log("Recebido evento activity-started, redirecionando para page5...");
-          router.push(`/page5?pin=${pinFromUrl}&student_id=${studentIdFromUrl}&name=${encodeURIComponent(userName)}`);
+        // Escuta a mensagem do tipo 'start' enviada pelo backend para iniciar a atividade
+        if (message.type === "start" || message.type === "activity-started") {
+          console.log("Recebido evento de início da atividade, redirecionando para page5...");
+          router.push(
+            `/page5?pin=${pinFromUrl}&student_id=${studentIdFromUrl}&name=${encodeURIComponent(userName)}`
+          );
         }
       };
 
       ws.onclose = () => {
+        console.log("WebSocket desconectado.");
         webSocketRef.current = null;
       };
 
-      ws.onerror = () => {
+      ws.onerror = (error) => {
+        console.error("Erro no WebSocket:", error);
         webSocketRef.current = null;
       };
     }
@@ -66,12 +77,7 @@ export default function ProfileContent() {
   return (
     <div className="flex min-h-screen w-screen flex-col items-center justify-center relative overflow-hidden">
       <div className="absolute inset-0 -z-10">
-        <Image
-          src="/Images/Fundo1.png"
-          alt="Background"
-          fill
-          className="object-cover"
-        />
+        <Image src="/Images/Fundo1.png" alt="Background" fill className="object-cover" />
         <div className="absolute inset-0 bg-sky-50/80" />
       </div>
 
@@ -107,16 +113,17 @@ export default function ProfileContent() {
           </div>
 
           <div className="w-full mt-3 bg-white border border-[#E9F2FC] rounded-full p-3 text-center">
-            <h2 className="text-[#1A3E55] text-base font-medium">
-              Confira se está no Hub
-            </h2>
-            {roomPin && <p className="text-gray-500 text-sm mt-1">PIN da Sala: <span className="font-semibold">{roomPin}</span></p>}
+            <h2 className="text-[#1A3E55] text-base font-medium">Confira se está no Hub</h2>
+            {roomPin && (
+              <p className="text-gray-500 text-sm mt-1">
+                PIN da Sala: <span className="font-semibold">{roomPin}</span>
+              </p>
+            )}
           </div>
 
           <p className="mt-4 text-gray-600 text-center">
             Aguardando o professor iniciar a sessão...
           </p>
-
         </div>
       </div>
     </div>

@@ -65,6 +65,13 @@
            (vec (remove #(= student-id (:student-id %)) connections))))
   (broadcast-student-list pin))
 
+;; Função nova: Enviar comando para navegar para uma página específica para um aluno
+(defn send-navigate-page [pin student-id page-number]
+  (when-let [ws-channel (get-in @ws-connections [pin student-id])]
+    (let [msg {:type "navigate" :page page-number}
+          json-msg (json/write-str msg)]
+      (httpkit/send! ws-channel json-msg))))
+
 ;; Manipulador de WebSocket
 (defn ws-handler [request]
   (httpkit/with-channel request ws-channel
@@ -157,6 +164,17 @@
                    :message "Atividade iniciada!"}))
       (not-found {:status "error"
                   :message "Sala não encontrada"})))
+
+  ;; ** NOVO ENDPOINT: Forçar navegação do aluno para uma página **
+  (POST "/api/rooms/:pin/students/:student-id/navigate" [pin student-id :as req]
+    (let [page (get-in req [:body :page])]
+      (if (and (get @rooms pin) (get-in @ws-connections [pin student-id]))
+        (do
+          (send-navigate-page pin student-id page)
+          (response {:status "success"
+                     :message (str "Solicitada navegação para a página " page " do aluno " student-id)}))
+        (not-found {:status "error"
+                    :message "Sala ou aluno não encontrado"}))))
 
   ;; ** NOVO ENDPOINT: status da sala **
   (GET "/api/rooms/:pin/status" [pin]
