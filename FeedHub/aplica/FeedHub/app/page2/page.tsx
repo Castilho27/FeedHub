@@ -168,7 +168,7 @@ export default function GameWaitingRoom() {
       {/* Imagem de fundo */}
       <div className="fixed inset-0 -z-10">
         <Image
-          src="/Images/Fundo1.png"
+          src="/Images/Fundo2.png"
           alt="Background"
           fill
           className="object-cover"
@@ -263,7 +263,7 @@ export default function GameWaitingRoom() {
 
         <div className="flex justify-center gap-3">
           <Button variant="ghost" size="sm">
-            Relatórios
+            QR Code
           </Button>
           <Button variant="ghost" size="sm">
             Temas
