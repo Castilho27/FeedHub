@@ -12,7 +12,6 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Cores que podem ser usadas para o avatar do aluno
   const avatarColors = [
     "#FF7043", "#FFA726", "#FFCA28", "#FFEE58",
     "#9CCC65", "#66BB6A", "#26A69A", "#26C6DA",
@@ -21,14 +20,12 @@ export default function LoginPage() {
     "#8D6E63", "#78909C", "#A8CFF5"
   ];
 
-  // Pega o PIN da URL ao carregar a página
   useEffect(() => {
     const pinParam = searchParams.get('pin');
     if (pinParam) {
       setRoomPin(pinParam);
       console.log('PIN recebido na page3:', pinParam);
     } else {
-      // Se não houver PIN na URL, redireciona de volta para a página principal
       alert('PIN da sala não encontrado. Por favor, digite o PIN na página principal.');
       router.push('/');
     }
@@ -48,9 +45,14 @@ export default function LoginPage() {
       router.push('/');
       return;
     } 
+
     const randomIndex = Math.floor(Math.random() * avatarColors.length);
     const chosenColor = avatarColors[randomIndex];
     console.log('Cor do avatar gerada:', chosenColor);
+
+    // Gerar o student_id uma única vez aqui
+    const studentId = Math.random().toString(36).substring(2, 15); // <--- GERAR ID AQUI!
+    console.log('Student ID gerado:', studentId);
 
     try {
       const res = await fetch(`http://localhost:3001/api/rooms/${roomPin}/join`, {
@@ -59,7 +61,7 @@ export default function LoginPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          student_id: Math.random().toString(36).substring(2, 15),
+          student_id: studentId, // <--- USAR O ID GERADO AQUI!
           name: userName.trim(),
           avatar_color: chosenColor 
         })
@@ -74,7 +76,9 @@ export default function LoginPage() {
 
       const data = await res.json(); 
       console.log('Entrou na sala com sucesso:', data);
-      router.push(`/page4?name=${encodeURIComponent(userName.trim())}&pin=${encodeURIComponent(roomPin)}&color=${encodeURIComponent(chosenColor)}`);
+
+      // Redirecionar para page4, passando o studentId também!
+      router.push(`/page4?name=${encodeURIComponent(userName.trim())}&pin=${encodeURIComponent(roomPin)}&color=${encodeURIComponent(chosenColor)}&student_id=${encodeURIComponent(studentId)}`); // <--- PASSAR student_id AQUI!
 
     } catch (error) {
       console.error('Erro na comunicação com o servidor ao entrar na sala:', error);
@@ -84,7 +88,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden">
-      {/* Imagem de fundo */}
       <div className="absolute inset-0 -z-10">
         <Image
           src="/Images/Fundo1.png"
@@ -96,7 +99,6 @@ export default function LoginPage() {
       </div>
 
       <div className="z-10 w-full max-w-md px-8 py-12 flex flex-col items-center">
-        {/* Logo FeedHub */}
         <div className="flex justify-center mb-6">
           <div className="w-48 h-auto relative">
             <Image
@@ -110,7 +112,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Login Form */}
         <div className="w-full bg-white rounded-xl p-6 shadow-lg">
           <Input
             className="w-full py-3 px-4 text-center text-gray-600 text-lg rounded-lg
@@ -133,7 +134,6 @@ export default function LoginPage() {
           </Button>
         </div>
 
-        {/* Warning text */}
         <p className="text-white text-sm mt-6 opacity-80">Seja Criativo e se prepare !</p>
       </div>
     </div>
