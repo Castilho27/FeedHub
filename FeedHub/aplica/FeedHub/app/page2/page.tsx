@@ -25,7 +25,7 @@ export default function GameWaitingRoom() {
   const [loadingStudents, setLoadingStudents] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const studentsPerPage = 5
+  const studentsPerPage = 4 // <--- ALTERADO DE 5 PARA 4 AQUI!
   const [startIndex, setStartIndex] = useState(0)
 
   // Gera uma chave única combinando student_id com o índice como fallback
