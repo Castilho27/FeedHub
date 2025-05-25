@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import toast from 'react-hot-toast'; // <--- ADICIONE ESTA LINHA
 
 export default function FeedbackPage() {
   const searchParams = useSearchParams();
@@ -32,21 +33,23 @@ export default function FeedbackPage() {
           "student-id": studentId,
           // A senha (pin) será enviada separadamente para o backend.
           // O backend precisará de um campo para armazená-la.
-          pin: pin, // <--- Adicionado o pin ao corpo da requisição
-          rating: selectedRating, // <--- Enviando a nota separadamente
-          comment: comment, // <--- Enviando o comentário separadamente
+          pin: pin,
+          rating: selectedRating,
+          comment: comment,
         }),
       });
 
       const responseData = await response.json();
       if (!response.ok) throw new Error(responseData.message || "Erro ao enviar feedback");
 
-      alert("Feedback enviado com sucesso!");
+      // Substitua o alert por toast.success
+      toast.success("Feedback enviado com sucesso!"); // <--- MUDANÇA AQUI
       setComment("");
       // AQUI: Mude a rota para a sua nova página de sucesso
       router.push(`/page7`); // Rota para a página de sucesso que você criou em app/page7/page.tsx
     } catch (error: any) {
-      alert(`Falha no envio: ${error.message}`);
+      // Substitua o alert por toast.error
+      toast.error(`Falha no envio: ${error.message}`); // <--- MUDANÇA AQUI PARA ERROS
       console.error("Erro detalhado:", error);
     } finally {
       setIsLoading(false);
