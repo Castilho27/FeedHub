@@ -1,5 +1,5 @@
 (ns feedback-api.core
-  (:gen-class) ;; ESSENCIAL para `lein run` funcionar
+  (:gen-class)
   (:require [compojure.core :refer [defroutes GET POST]]
             [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
             [ring.middleware.cors :refer [wrap-cors]]
@@ -12,10 +12,11 @@
             [clojure.string :as str]))
 
 ;; Átomos para gerenciar o estado da aplicação
-(def rooms (atom {})) ; {pin-da-sala {room-data}}
-(def active-connections (atom {})) ; {pin-da-sala [list-of-connections-info]}
-(def ws-connections (atom {})) ; {pin-da-sala {student-id WebSocketChannel}}
-(def feedbacks (atom {})) ; Armazena {pin-da-sala => [{:student-id "123", :message "texto", :timestamp long}]}
+(def rooms (atom {}))
+(def active-connections (atom {}))
+(def ws-connections (atom {}))
+;; feedbacks agora armazenará os campos rating e comment separadamente, e o pin.
+(def feedbacks (atom {})) ; Armazena {pin-da-sala => [{:student-id "123", :rating 8, :comment "Texto", :pin "123456", :timestamp long}]}
 
 ;; Funções de utilidade para PIN
 (defn generate-pin []
@@ -40,7 +41,7 @@
 (defn broadcast-student-list [pin]
   (when-let [room-students (:connected-students (get @rooms pin))]
     (let [message-data {:type "student-list-update"
-                         :students room-students}
+                        :students room-students}
           json-message (json/write-str message-data)]
       (doseq [[_ ws-channel] (get @ws-connections pin)]
         (httpkit/send! ws-channel json-message)))))
@@ -73,29 +74,38 @@
           json-msg (json/write-str msg)]
       (httpkit/send! ws-channel json-msg))))
 
-;; FUNÇÕES AUXILIARES DE FEEDBACK (MOVIDAS PARA CIMA PARA SEREM RECONHECIDAS)
+;; FUNÇÕES AUXILIARES DE FEEDBACK
+;; Modificado para enviar o feedback completo, incluindo rating e comment
 (defn notify-new-feedback [pin feedback]
-  (println "Tentando notificar professor sobre novo feedback - PIN:" pin) ; Log de notificação
+  (println "Tentando notificar professor sobre novo feedback - PIN:" pin)
   (when-let [professor-ws (get-in @ws-connections [pin "professor"])]
-    (println "Professor encontrado, enviando feedback:" feedback) ; Log de envio
+    (println "Professor encontrado, enviando feedback:" feedback)
     (httpkit/send! professor-ws
                    (json/write-str {:type "feedback" :data feedback}))))
 
-(defn validate-feedback [message]
-  (and (string? message)
-       (>= (count message) 2)
-       (<= (count message) 500)))
+;; A validação agora deve considerar os campos separados
+(defn validate-feedback [rating comment]
+  (and (integer? rating)
+       (>= rating 1)
+       (<= rating 10)
+       (string? comment)
+       (>= (count comment) 2)
+       (<= (count comment) 500)))
 
-(defn add-feedback [pin student-id message]
+;; Modificado para aceitar rating e comment separadamente, e incluir o pin
+(defn add-feedback [pin student-id rating comment]
   (let [feedback {:student-id student-id
-                  :message message
+                  :rating rating         ; <--- Adicionado
+                  :comment comment       ; <--- Adicionado
+                  :message (str "Nota: " rating "/10 | Comentário: " comment) ; Mantido para compatibilidade, mas os outros campos são preferíveis
+                  :pin pin               ; <--- Adicionado o pin ao feedback
                   :timestamp (coerce/to-long (time/now))}]
     (swap! feedbacks update pin (fnil conj []) feedback)
     feedback))
 
 ;; Manipulador de WebSocket
 (defn ws-handler [request]
-  (println "Nova conexão WebSocket recebida") ; Log de nova conexão
+  (println "Nova conexão WebSocket recebida")
   (httpkit/with-channel request ws-channel
     (let [uri (:uri request)
           query-string (:query-string request)
@@ -105,30 +115,34 @@
                             (some #(when (str/starts-with? % "student_id=")
                                      (subs % (count "student_id="))))))
           is-professor (= student-id "professor")]
-      (println "Conexão estabelecida - PIN:" pin "| Student-ID:" student-id) ; Log de conexão
+      (println "Conexão estabelecida - PIN:" pin "| Student-ID:" student-id)
       (cond
         ;; Conexão do Professor
         is-professor
         (do
           (swap! ws-connections assoc-in [pin "professor"] ws-channel)
           (httpkit/on-close ws-channel (fn [status]
-                                         (swap! ws-connections update pin dissoc "professor"))))
+                                          (swap! ws-connections update pin dissoc "professor"))))
 
-        ;; Conexão do Aluno
+        ;; Conexão do Aluno (Note: Aluno não envia feedback via WS no seu frontend, mas a lógica está aqui)
         (and pin student-id (get @rooms pin))
         (do
           (swap! ws-connections update pin (fnil assoc {}) student-id ws-channel)
           (httpkit/on-receive ws-channel (fn [data]
-                                           (try
-                                             (let [msg (json/read-str data :key-fn keyword)]
-                                               (when (= (:type msg) "feedback")
-                                                 (let [feedback (add-feedback pin student-id (:message msg))]
-                                                   (notify-new-feedback pin feedback))))
-                                             (catch Exception e
-                                               (println "Erro ao processar mensagem:" e)))))
+                                            (try
+                                              (let [msg (json/read-str data :key-fn keyword)]
+                                                ;; Se o aluno enviar feedback via WS (o que não acontece atualmente no seu frontend)
+                                                (when (= (:type msg) "feedback")
+                                                  ;; Nota: Este trecho precisaria ser adaptado se o frontend decidisse enviar rating/comment via WS
+                                                  (let [feedback (add-feedback pin student-id
+                                                                               (:rating msg) ; Assumindo que rating viria no WS
+                                                                               (:comment msg))] ; Assumindo que comment viria no WS
+                                                    (notify-new-feedback pin feedback))))
+                                              (catch Exception e
+                                                (println "Erro ao processar mensagem WebSocket do aluno:" e)))))
           (httpkit/on-close ws-channel (fn [status]
-                                         (swap! ws-connections update pin dissoc student-id)
-                                         (remove-student-from-room pin student-id))))
+                                          (swap! ws-connections update pin dissoc student-id)
+                                          (remove-student-from-room pin student-id))))
 
         ;; Erro
         :else
@@ -143,16 +157,17 @@
      :body {:message "API FeedHub - Feedback de Professores"
             :version "1.0.0"}})
 
+  ;; Rota para obter feedbacks: Retorna todos os campos, incluindo pin, rating e comment
   (GET "/api/rooms/:pin/feedbacks" [pin]
     (if-let [room-feedbacks (get @feedbacks pin)]
-      (response {:feedbacks room-feedbacks})
+      (response {:feedbacks room-feedbacks}) ; 'room-feedbacks' já deve conter pin, rating e comment
       (not-found {:status "error" :message "Nenhum feedback encontrado"})))
 
   (POST "/api/rooms" []
     (response (create-room)))
 
   (POST "/api/rooms/:pin/join" [pin :as req]
-    (let [student-id (get-in req [:body :student_id]) ; Use :student_id para o frontend que envia student_id
+    (let [student-id (get-in req [:body :student_id])
           student-name (get-in req [:body :name])
           avatar-color (get-in req [:body :avatar_color])
           student-data {:student-id student-id
@@ -174,7 +189,7 @@
                     :message "PIN inválido ou sala não encontrada"}))))
 
   (POST "/api/rooms/:pin/leave" [pin :as req]
-    (let [student-id (get-in req [:body :student_id])] ; Use :student_id para o frontend que envia student_id
+    (let [student-id (get-in req [:body :student_id])]
       (if (and pin student-id)
         (if (get @rooms pin)
           (do
@@ -223,16 +238,17 @@
         (not-found {:status "error"
                     :message "Sala ou aluno não encontrado"}))))
 
-  ;; Rota para enviar feedback (ÚNICA VERSÃO)
+  ;; Rota para enviar feedback - AGORA COM RATING E COMMENT SEPARADOS
   (POST "/api/rooms/:pin/feedback" [pin :as req]
-    (let [student-id (get-in req [:body :student-id]) ; Acesso consistente
-          message (get-in req [:body :message])]      ; AGORA CORRIGIDO!
-      (println "Recebido feedback - PIN:" pin "| Student-ID:" student-id "| Mensagem:" message) ; Log para debug
+    (let [student-id (get-in req [:body :student-id])
+          rating (get-in req [:body :rating])    ; <--- Recebe o rating
+          comment (get-in req [:body :comment])]  ; <--- Recebe o comment
+      (println "Recebido feedback - PIN:" pin "| Student-ID:" student-id "| Rating:" rating "| Comment:" comment)
       (cond
         (not (get @rooms pin)) (not-found {:status 404 :message "Sala não existe"})
-        (not (validate-feedback message)) {:status 400 :body {:error "Mensagem deve ter entre 2 e 500 caracteres"}}
-        :else (let [feedback (add-feedback pin student-id message)]
-                (println "Feedback armazenado:" feedback) ; Log do feedback armazenado
+        (not (validate-feedback rating comment)) {:status 400 :body {:error "Rating deve ser um número entre 1 e 10, e o comentário entre 2 e 500 caracteres"}}
+        :else (let [feedback (add-feedback pin student-id rating comment)] ; <--- Chama add-feedback com rating e comment
+                (println "Feedback armazenado:" feedback)
                 (notify-new-feedback pin feedback)
                 (response {:status "success" :feedback feedback})))))
 
@@ -253,7 +269,7 @@
       (wrap-cors :access-control-allow-origin [#".*"]
                  :access-control-allow-methods [:get :post :put :delete])
       wrap-json-response
-      (wrap-json-body {:keywords? true}) ; Este é o middleware que converte chaves JSON para keywords (kebab-case)
+      (wrap-json-body {:keywords? true})
       wrap-params))
 
 ;; FUNÇÃO PRINCIPAL para lein run

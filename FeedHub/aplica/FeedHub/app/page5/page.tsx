@@ -30,7 +30,11 @@ export default function FeedbackPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           "student-id": studentId,
-          message: `Nota: ${selectedRating}/10 | Comentário: ${comment}`,
+          // A senha (pin) será enviada separadamente para o backend.
+          // O backend precisará de um campo para armazená-la.
+          pin: pin, // <--- Adicionado o pin ao corpo da requisição
+          rating: selectedRating, // <--- Enviando a nota separadamente
+          comment: comment, // <--- Enviando o comentário separadamente
         }),
       });
 
@@ -106,3 +110,4 @@ export default function FeedbackPage() {
     </div>
   );
 }
+

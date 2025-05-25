@@ -1,18 +1,18 @@
-'use client'
+"use client";
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LogoPlace } from "@/components/logo-place";
-import FeedbackCard  from "@/components/feedback-card";
+import FeedbackCard from "@/components/feedback-card"; // Importe o FeedbackCard
 import { Download, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Feedback {
-  // Removi o id obrigatório, pois parece que o backend não envia
   studentId: string;
   message: string;
   timestamp: number;
-  rating?: number;
+  rating?: number; // Este campo deve conter a nota
+  pin?: string;    // O pin ainda pode vir, mas não será o valor principal da bolinha
 }
 
 export default function StudentFeedbackDashboard() {
@@ -58,7 +58,12 @@ export default function StudentFeedbackDashboard() {
         if (message.type === "feedback") {
           setFeedbacks((prev) => {
             // Evita duplicados com base em studentId + timestamp
-            if (prev.some(fb => fb.studentId === message.data.studentId && fb.timestamp === message.data.timestamp)) return prev;
+            if (
+              prev.some(
+                (fb) => fb.studentId === message.data.studentId && fb.timestamp === message.data.timestamp
+              )
+            )
+              return prev;
             return [...prev, message.data];
           });
         }
@@ -75,10 +80,20 @@ export default function StudentFeedbackDashboard() {
       <header className="container mx-auto p-4 flex justify-between items-center">
         <LogoPlace />
         <div className="flex gap-4">
-          <Button variant="ghost" size="icon" className="text-sky-500 hover:bg-sky-100" aria-label="Capturar foto">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-sky-500 hover:bg-sky-100"
+            aria-label="Capturar foto"
+          >
             <Camera className="w-6 h-6" />
           </Button>
-          <Button variant="ghost" size="icon" className="text-sky-500 hover:bg-sky-100" aria-label="Baixar feedbacks">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-sky-500 hover:bg-sky-100"
+            aria-label="Baixar feedbacks"
+          >
             <Download className="w-6 h-6" />
           </Button>
         </div>
@@ -98,7 +113,7 @@ export default function StudentFeedbackDashboard() {
           {feedbacks.map((feedback) => (
             <FeedbackCard
               key={`${feedback.studentId}-${feedback.timestamp}`}
-              rating={feedback.rating ?? 5} // valor padrão 5
+              rating={feedback.rating ?? 0} // <--- ESTA É A LINHA CRÍTICA!
               name="Feedback"
               studentName={feedback.studentId}
               comment={feedback.message}

@@ -6,12 +6,14 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
 interface FeedbackCardProps {
-  rating: number
+  // A interface DEVE esperar 'rating: number' para a nota
+  rating: number; 
   name: string
   studentName: string
   comment: string
 }
 
+// Desestruturamos 'rating' no lugar de 'displayValue'
 export default function FeedbackCard({ rating, name, studentName, comment }: FeedbackCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -21,7 +23,8 @@ export default function FeedbackCard({ rating, name, studentName, comment }: Fee
         <div className="flex flex-col items-center">
           <div className="relative w-full flex justify-center py-6">
             <div className="bg-sky-300 rounded-full w-20 h-20 flex items-center justify-center">
-              <span className="text-4xl font-bold">{rating}</span>
+              {/* Exibe o VALOR DA NOTA (rating) na bolinha azul */}
+              <span className="text-4xl font-bold">{rating}</span> 
             </div>
           </div>
 
