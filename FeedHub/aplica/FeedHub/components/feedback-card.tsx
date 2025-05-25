@@ -12,7 +12,7 @@ interface FeedbackCardProps {
   comment: string
 }
 
-export function FeedbackCard({ rating, name, studentName, comment }: FeedbackCardProps) {
+export default function FeedbackCard({ rating, name, studentName, comment }: FeedbackCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
