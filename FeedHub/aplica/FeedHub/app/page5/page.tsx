@@ -43,7 +43,8 @@ export default function FeedbackPage() {
 
       alert("Feedback enviado com sucesso!");
       setComment("");
-      router.push(`/room/${pin}/completed`);
+      // AQUI: Mude a rota para a sua nova página de sucesso
+      router.push(`/page7`); // Rota para a página de sucesso que você criou em app/page7/page.tsx
     } catch (error: any) {
       alert(`Falha no envio: ${error.message}`);
       console.error("Erro detalhado:", error);
