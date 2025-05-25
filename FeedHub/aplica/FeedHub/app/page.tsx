@@ -1,14 +1,15 @@
-'use client'
+"use client";
 
-import { User } from "lucide-react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
+import { User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useState } from "react";
-import { Input } from "@/components/ui/input"; // Importe Input
-import { Button } from "@/components/ui/button"; // Importe Button
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import toast from 'react-hot-toast'; // <--- Importe o toast aqui!
 
 export default function Home() {
-  const router = useRouter()
+  const router = useRouter();
   const [studentPin, setStudentPin] = useState<string>('');
 
   const handleStudentPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -18,11 +19,10 @@ export default function Home() {
 
   const handleStudentEntry = async () => {
     if (studentPin.trim() === '' || studentPin.trim().length !== 6) {
-      alert('Por favor, digite um PIN de 6 dígitos válido para a sala.');
+      toast.error('Por favor, digite um PIN de 6 dígitos válido para a sala.'); // <--- Toast para PIN inválido
       return;
     }
     try {
-      // Endpoint para verificar se a sala existe (GET)
       const res = await fetch(`http://localhost:3001/api/rooms/${studentPin}/status`, {
         method: 'GET',
         headers: {
@@ -32,16 +32,17 @@ export default function Home() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        alert(`Erro ao verificar PIN: ${errorData.message || 'PIN inválido ou sala não encontrada.'}`);
+        toast.error(`Erro ao verificar PIN: ${errorData.message || 'PIN inválido ou sala não encontrada.'}`); // <--- Toast para erro ao verificar PIN
         console.error('Erro ao verificar PIN:', errorData.message || 'PIN inválido ou sala não encontrada.', `Status: ${res.status}`);
         return;
       }
 
-      // Se o PIN for válido e a sala existir, redireciona para a página 3 para digitar o nome
+      // Se o PIN for válido e a sala existir
+      toast.success(`Você entrou na sala com sucesso!`); // <--- TOAST DE SUCESSO AQUI!
       router.push(`/page3?pin=${encodeURIComponent(studentPin.trim())}`);
     } catch (error) {
       console.error('Erro na comunicação com o servidor ao verificar PIN:', error);
-      alert('Erro de rede ao tentar verificar o PIN. Tente novamente.');
+      toast.error('Erro de rede ao tentar verificar o PIN. Tente novamente.'); // <--- Toast para erro de rede
     }
   };
 
@@ -56,6 +57,7 @@ export default function Home() {
 
       if (!res.ok) {
         const errorData = await res.json();
+        toast.error(`Falha ao criar sala: ${errorData.message || 'Erro desconhecido.'}`); // <--- Toast para erro ao criar sala
         console.error('Erro ao criar sala:', errorData.message || 'Erro desconhecido', `Status: ${res.status}`);
         return
       }
@@ -63,10 +65,11 @@ export default function Home() {
       const data = await res.json()
       const pin = data.pin
 
-      console.log(`Sala criada com sucesso! PIN: ${pin}`);
+      toast.success(`Sala criada com sucesso!`); // <--- TOAST DE SUCESSO AQUI!
       router.push(`/page2?pin=${pin}`)
     } catch (error) {
       console.error('Erro na comunicação com o servidor:', error);
+      toast.error('Erro de rede ao tentar criar a sala. Tente novamente.'); // <--- Toast para erro de rede
     }
   }
 
