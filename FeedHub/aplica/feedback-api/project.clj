@@ -5,14 +5,14 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [ring/ring-core "1.9.6"]
-                 ;; [ring/ring-jetty-adapter "1.9.6"] ; <--- REMOVA OU COMENTE ESTA LINHA!
-                 [http-kit "2.7.0"]              ; <--- ADICIONE ESTA LINHA!
+                 [http-kit "2.7.0"]             
                  [ring/ring-json "0.5.1"]
                  [compojure "1.7.1"]
                  [cheshire "5.11.0"]
                  [clj-time "0.15.2"]
                  [ring-cors "0.1.13"]
-                 [org.clojure/data.json "2.5.0"]] ; <--- ADICIONE ESTA LINHA!
+                 [instaparse "1.4.12"]
+                 [org.clojure/data.json "2.5.0"]] 
   :main feedback-api.core
   :uberjar-name "feedback-api-standalone.jar"
   :target-path "target/%s"
