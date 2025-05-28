@@ -16,6 +16,6 @@ RUN apt-get update && apt-get upgrade -y && apt-get clean && rm -rf /var/lib/apt
 
 COPY --from=builder /app/target/feedback-api-standalone.jar .
 
-EXPOSE 3000
+EXPOSE 3001
 
 CMD ["java", "-jar", "feedback-api-standalone.jar"]

@@ -20,6 +20,8 @@
 ;; Define a URL do frontend a partir da variável de ambiente
 ;; Se a variável não estiver definida (ex: em ambiente de desenvolvimento local),
 ;; ele usará "http://localhost:3000" como fallback.
+;; --- MODIFICAÇÃO IMPORTANTE AQUI: MANTEMOS O FALLBACK PARA FACILITAR O DESENVOLVIMENTO LOCAL
+;; É crucial que na produção você defina a variável de ambiente FRONTEND_URL.
 (def frontend-url (or (System/getenv "FRONTEND_URL") "http://localhost:3000"))
 
 ;; Funções de utilidade para PIN
@@ -46,7 +48,7 @@
 (defn broadcast-student-list [pin]
   (when-let [room-students (:connected-students (get @rooms pin))]
     (let [message-data {:type "student-list-update"
-                        :students room-students}
+                         :students room-students}
           json-message (json/write-str message-data)]
       (doseq [[_ ws-channel] (get @ws-connections pin)]
         (httpkit/send! ws-channel json-message)))))
@@ -110,7 +112,7 @@
   (let [feedback {:student-id student-id
                   :rating rating
                   :comment comment
-                  :message (str "Nota: " rating "/10 | Comentário: " comment) ; Mantido para compatibilidade, mas os outros campos são preferíveis
+                  :message (str "Nota: " rating "/10 | Comentário: " comment)
                   :pin pin
                   :timestamp (coerce/to-long (time/now))}]
     (swap! feedbacks update pin (fnil conj []) feedback)
@@ -138,7 +140,7 @@
           (when-let [current-question (:current-question (get @rooms pin))]
             (httpkit/send! ws-channel (json/write-str {:type "question-update" :question current-question})))
           (httpkit/on-close ws-channel (fn [status]
-                                          (swap! ws-connections update pin dissoc "professor"))))
+                                         (swap! ws-connections update pin dissoc "professor"))))
 
         ;; Conexão do Aluno
         (and pin student-id (get @rooms pin))
@@ -148,30 +150,30 @@
           (when-let [current-question (:current-question (get @rooms pin))]
             (httpkit/send! ws-channel (json/write-str {:type "question-update" :question current-question})))
           (httpkit/on-receive ws-channel (fn [data]
-                                            (try
-                                              (let [msg (json/read-str data :key-fn keyword)]
-                                                ;; Lida com a mensagem de atualização de pergunta
-                                                (cond
-                                                  (= (:type msg) "question-update")
-                                                  (if is-professor ;; Apenas professor pode enviar essa atualização
-                                                    (let [new-question (:question msg)]
-                                                      (println "Recebida question-update do professor para sala" pin ":" new-question)
-                                                      (when new-question
-                                                        (swap! rooms assoc-in [pin :current-question] new-question)
-                                                        (broadcast-question-update pin new-question)))
-                                                    (println "Tentativa não autorizada de 'question-update' de aluno:" student-id))
+                                           (try
+                                             (let [msg (json/read-str data :key-fn keyword)]
+                                               ;; Lida com a mensagem de atualização de pergunta
+                                               (cond
+                                                 (= (:type msg) "question-update")
+                                                 (if is-professor ;; Apenas professor pode enviar essa atualização
+                                                   (let [new-question (:question msg)]
+                                                     (println "Recebida question-update do professor para sala" pin ":" new-question)
+                                                     (when new-question
+                                                       (swap! rooms assoc-in [pin :current-question] new-question)
+                                                       (broadcast-question-update pin new-question)))
+                                                   (println "Tentativa não autorizada de 'question-update' de aluno:" student-id))
 
-                                                  (= (:type msg) "feedback")
-                                                  ;; Se o aluno enviar feedback via WS (o que não acontece atualmente no seu frontend)
-                                                  (let [feedback (add-feedback pin student-id
-                                                                                 (:rating msg)
-                                                                                 (:comment msg))]
-                                                    (notify-new-feedback pin feedback))))
-                                              (catch Exception e
-                                                (println "Erro ao processar mensagem WebSocket do aluno:" e)))))
+                                                 (= (:type msg) "feedback")
+                                                 ;; Se o aluno enviar feedback via WS (o que não acontece atualmente no seu frontend)
+                                                 (let [feedback (add-feedback pin student-id
+                                                                                (:rating msg)
+                                                                                (:comment msg))]
+                                                   (notify-new-feedback pin feedback))))
+                                             (catch Exception e
+                                               (println "Erro ao processar mensagem WebSocket do aluno:" e)))))
           (httpkit/on-close ws-channel (fn [status]
-                                          (swap! ws-connections update pin dissoc student-id)
-                                          (remove-student-from-room pin student-id))))
+                                         (swap! ws-connections update pin dissoc student-id)
+                                         (remove-student-from-room pin student-id))))
 
         ;; Erro
         :else
@@ -193,7 +195,7 @@
   ;; Rota para obter feedbacks: Retorna todos os campos, incluindo pin, rating e comment
   (GET "/api/rooms/:pin/feedbacks" [pin]
     (if-let [room-feedbacks (get @feedbacks pin)]
-      (response {:feedbacks room-feedbacks}) ; 'room-feedbacks' já deve conter pin, rating e comment
+      (response {:feedbacks room-feedbacks})
       (not-found {:status "error" :message "Nenhum feedback encontrado"})))
 
   (POST "/api/rooms" []
@@ -239,17 +241,17 @@
   (GET "/api/rooms/:pin" [pin]
     (if-let [room (get @rooms pin)]
       (response {:room room
-                 :connections (count (get @active-connections pin []))})
+                  :connections (count (get @active-connections pin []))})
       (not-found {:status "error"
-                   :message "Sala não encontrada"})))
+                  :message "Sala não encontrada"})))
 
   (GET "/api/rooms/:pin/panel" [pin]
     (if-let [room (get @rooms pin)]
       (response {:room room
-                 :connected-students (:connected-students room)
-                 :current-question (:current-question room)})
+                  :connected-students (:connected-students room)
+                  :current-question (:current-question room)})
       (not-found {:status "error"
-                   :message "Sala não encontrada"})))
+                  :message "Sala não encontrada"})))
 
   (POST "/api/rooms/:pin/start" [pin :as req]
     (if-let [room (get @rooms pin)]
@@ -259,7 +261,7 @@
         (response {:status "success"
                    :message "Atividade iniciada!"}))
       (not-found {:status "error"
-                   :message "Sala não encontrada"})))
+                  :message "Sala não encontrada"})))
 
   ;; NOVO ENDPOINT: Forçar navegação do aluno para uma página
   (POST "/api/rooms/:pin/students/:student-id/navigate" [pin student-id :as req]
@@ -270,7 +272,7 @@
           (response {:status "success"
                      :message (str "Solicitada navegação para a página " page " do aluno " student-id)}))
         (not-found {:status "error"
-                     :message "Sala ou aluno não encontrado"}))))
+                    :message "Sala ou aluno não encontrado"}))))
 
   ;; Rota para enviar feedback - AGORA COM RATING E COMMENT SEPARADOS
   (POST "/api/rooms/:pin/feedback" [pin :as req]
@@ -290,27 +292,30 @@
   (GET "/api/rooms/:pin/status" [pin]
     (if-let [room (get @rooms pin)]
       (response {:pin pin
-                 :room-id (:id room)
-                 :created-at (:created-at room)
-                 :connected-students (:connected-students room)
-                 :active-connections (count (get @active-connections pin []))
-                 :current-question (:current-question room)})
+                  :room-id (:id room)
+                  :created-at (:created-at room)
+                  :connected-students (:connected-students room)
+                  :active-connections (count (get @active-connections pin []))
+                  :current-question (:current-question room)})
       (not-found {:status "error"
-                   :message "Sala não encontrada"}))))
+                  :message "Sala não encontrada"}))))
 
 ---
 
-### **Middleware e Função Principal**
+### **Middleware e Função Principal Corrigidos**
 
 ```clojure
 ;; Middleware
 (def app
   (-> app-routes
       ;; --- MODIFICAÇÃO IMPORTANTE AQUI ---
-      (wrap-cors :access-control-allow-origin [(re-pattern frontend-url)] ; Usando a variável de ambiente
-                 :access-control-allow-methods [:get :post :put :delete :options] ; Adicionado :options
-                 :access-control-allow-headers ["Content-Type" "Authorization"] ; Exemplo de headers que seu frontend pode enviar
-                 :access-control-allow-credentials true) ; Se você usa credenciais (cookies, tokens no header Authorization)
+      ;; Agora, 'frontend-url' é usada para criar um padrão de regex
+      ;; que permite requisições CORS vindas da URL do seu frontend.
+      ;; wrap-cors aceita uma lista de strings ou regex patterns.
+      (wrap-cors :access-control-allow-origin [(re-pattern (str "^" (java.util.regex.Pattern/quote frontend-url) "(:\\d{1,5})?$"))]
+                 :access-control-allow-methods [:get :post :put :delete :options]
+                 :access-control-allow-headers ["Content-Type" "Authorization"]
+                 :access-control-allow-credentials true)
       ;; --- FIM DA MODIFICAÇÃO ---
       wrap-json-response
       (wrap-json-body {:keywords? true})
@@ -319,5 +324,7 @@
 ;; FUNÇÃO PRINCIPAL para lein run
 (defn -main [& args]
   (println "Servidor iniciado na porta 3001")
-  (println "Frontend URL permitida para CORS:" frontend-url) ; Mensagem para debug
+  ;; --- CORREÇÃO AQUI: Movido para dentro da função -main ---
+  (println "Frontend URL permitida para CORS:" frontend-url)
+  ;; --- FIM DA CORREÇÃO ---
   (httpkit/run-server #'app {:port 3001}))
