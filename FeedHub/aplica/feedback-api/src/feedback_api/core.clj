@@ -293,9 +293,7 @@
       wrap-json-response
       (wrap-cors
         {:access-control-allow-origin #{#"https://feedhub-omega.vercel.app"
-                                        #"https://feedhub-omega.vercel.app/page2"
-                                        #"http://localhost:3000"
-                                        #"http://localhost:3001"} 
+                                        } 
          :access-control-allow-methods [:get :post :put :delete :options]
          :access-control-allow-headers ["Content-Type" "Authorization"]
          :access-control-allow-credentials true})))
