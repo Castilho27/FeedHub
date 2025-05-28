@@ -6,7 +6,21 @@ import Image from "next/image";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import toast from 'react-hot-toast'; // <--- Importe o toast aqui!
+import toast from 'react-hot-toast';
+
+// --- MODIFIQUE ESTA LINHA ---
+// Agora, ele vai esperar que NEXT_PUBLIC_API_BASE_URL esteja SEMPRE definida.
+// Se não estiver, process.env.NEXT_PUBLIC_API_BASE_URL será 'undefined'
+// e as chamadas fetch podem falhar ou ir para uma URL inválida.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// Recomendação: Adicione uma verificação para garantir que a URL esteja definida
+// Isso pode ser útil para depuração em ambientes onde a variável pode não ser configurada
+if (!API_BASE_URL) {
+  console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API podem falhar.");
+  // Você pode até lançar um erro ou desabilitar funcionalidades se isso for crítico
+}
+// --------------------------
 
 export default function Home() {
   const router = useRouter();
@@ -19,11 +33,21 @@ export default function Home() {
 
   const handleStudentEntry = async () => {
     if (studentPin.trim() === '' || studentPin.trim().length !== 6) {
-      toast.error('Por favor, digite um PIN de 6 dígitos válido para a sala.'); // <--- Toast para PIN inválido
+      toast.error('Por favor, digite um PIN de 6 dígitos válido para a sala.');
       return;
     }
+
+    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DAS CHAMADAS DE API ---
+    if (!API_BASE_URL) {
+        toast.error('Configuração de API inválida. Contate o suporte.');
+        return;
+    }
+    // -----------------------------------------------------------
+
     try {
-      const res = await fetch(`http://localhost:3001/api/rooms/${studentPin}/status`, {
+      // --- MODIFIQUE ESTA LINHA ---
+      const res = await fetch(`${API_BASE_URL}/api/rooms/${studentPin}/status`, {
+      // --------------------------
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -32,23 +56,30 @@ export default function Home() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        toast.error(`Erro ao verificar PIN: ${errorData.message || 'PIN inválido ou sala não encontrada.'}`); // <--- Toast para erro ao verificar PIN
+        toast.error(`Erro ao verificar PIN: ${errorData.message || 'PIN inválido ou sala não encontrada.'}`);
         console.error('Erro ao verificar PIN:', errorData.message || 'PIN inválido ou sala não encontrada.', `Status: ${res.status}`);
         return;
       }
 
-      // Se o PIN for válido e a sala existir
-      toast.success(`Você entrou na sala com sucesso!`); // <--- TOAST DE SUCESSO AQUI!
+      toast.success(`Você entrou na sala com sucesso!`);
       router.push(`/page3?pin=${encodeURIComponent(studentPin.trim())}`);
     } catch (error) {
       console.error('Erro na comunicação com o servidor ao verificar PIN:', error);
-      toast.error('Erro de rede ao tentar verificar o PIN. Tente novamente.'); // <--- Toast para erro de rede
+      toast.error('Erro de rede ao tentar verificar o PIN. Tente novamente.');
     }
   };
 
   const handleProfessorClick = async () => {
+    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DAS CHAMADAS DE API ---
+    if (!API_BASE_URL) {
+        toast.error('Configuração de API inválida. Contate o suporte.');
+        return;
+    }
+    // -----------------------------------------------------------
     try {
-      const res = await fetch('http://localhost:3001/api/rooms', {
+      // --- MODIFIQUE ESTA LINHA ---
+      const res = await fetch(`${API_BASE_URL}/api/rooms`, {
+      // --------------------------
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -57,7 +88,7 @@ export default function Home() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        toast.error(`Falha ao criar sala: ${errorData.message || 'Erro desconhecido.'}`); // <--- Toast para erro ao criar sala
+        toast.error(`Falha ao criar sala: ${errorData.message || 'Erro desconhecido.'}`);
         console.error('Erro ao criar sala:', errorData.message || 'Erro desconhecido', `Status: ${res.status}`);
         return
       }
@@ -65,11 +96,11 @@ export default function Home() {
       const data = await res.json()
       const pin = data.pin
 
-      toast.success(`Sala criada com sucesso!`); // <--- TOAST DE SUCESSO AQUI!
+      toast.success(`Sala criada com sucesso!`);
       router.push(`/page2?pin=${pin}`)
     } catch (error) {
       console.error('Erro na comunicação com o servidor:', error);
-      toast.error('Erro de rede ao tentar criar a sala. Tente novamente.'); // <--- Toast para erro de rede
+      toast.error('Erro de rede ao tentar criar a sala. Tente novamente.');
     }
   }
 

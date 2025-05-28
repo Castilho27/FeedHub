@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -6,9 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Image from 'next/image';
 
+// --- ADICIONE ESTAS LINHAS AQUI ---
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// Recomendação: Adicione uma verificação para garantir que a URL esteja definida
+if (!API_BASE_URL) {
+  console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API podem falhar.");
+}
+// -------------------------------
+
 export default function LoginPage() {
   const [userName, setUserName] = useState("");
-  const [roomPin, setRoomPin] = useState<string | null>(null); 
+  const [roomPin, setRoomPin] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -35,35 +44,44 @@ export default function LoginPage() {
     setUserName(event.target.value);
   };
 
-  const handleProceed = async () => { 
+  const handleProceed = async () => {
     if (userName.trim() === "") {
       alert("Por favor, digite seu nome para continuar!");
       return;
     }
-    if (!roomPin) { 
+    if (!roomPin) {
       alert("Erro: PIN da sala não disponível. Tente novamente.");
       router.push('/');
       return;
-    } 
+    }
+
+    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DAS CHAMADAS DE API ---
+    if (!API_BASE_URL) {
+        alert('Configuração de API inválida. Contate o suporte.');
+        return;
+    }
+    // -----------------------------------------------------------
 
     const randomIndex = Math.floor(Math.random() * avatarColors.length);
     const chosenColor = avatarColors[randomIndex];
     console.log('Cor do avatar gerada:', chosenColor);
 
     // Gerar o student_id uma única vez aqui
-    const studentId = Math.random().toString(36).substring(2, 15); // <--- GERAR ID AQUI!
+    const studentId = Math.random().toString(36).substring(2, 15);
     console.log('Student ID gerado:', studentId);
 
     try {
-      const res = await fetch(`http://localhost:3001/api/rooms/${roomPin}/join`, {
+      // --- MODIFIQUE ESTA LINHA ---
+      const res = await fetch(`${API_BASE_URL}/api/rooms/${roomPin}/join`, {
+      // --------------------------
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          student_id: studentId, // <--- USAR O ID GERADO AQUI!
+          student_id: studentId,
           name: userName.trim(),
-          avatar_color: chosenColor 
+          avatar_color: chosenColor
         })
       });
 
@@ -74,11 +92,10 @@ export default function LoginPage() {
         return;
       }
 
-      const data = await res.json(); 
+      const data = await res.json();
       console.log('Entrou na sala com sucesso:', data);
 
-      // Redirecionar para page4, passando o studentId também!
-      router.push(`/page4?name=${encodeURIComponent(userName.trim())}&pin=${encodeURIComponent(roomPin)}&color=${encodeURIComponent(chosenColor)}&student_id=${encodeURIComponent(studentId)}`); // <--- PASSAR student_id AQUI!
+      router.push(`/page4?name=${encodeURIComponent(userName.trim())}&pin=${encodeURIComponent(roomPin)}&color=${encodeURIComponent(chosenColor)}&student_id=${encodeURIComponent(studentId)}`);
 
     } catch (error) {
       console.error('Erro na comunicação com o servidor ao entrar na sala:', error);
@@ -115,12 +132,12 @@ export default function LoginPage() {
         <div className="w-full bg-white rounded-xl p-6 shadow-lg">
           <Input
             className="w-full py-3 px-4 text-center text-gray-600 text-lg rounded-lg
-                       border-2 border-gray-300
-                       focus:ring-0 focus:outline-none focus:border-blue-500
-                       !ring-0 !outline-none !border-none !border-transparent
-                       shadow-md
-                       placeholder-shown:text-gray-400 placeholder-shown:opacity-100
-                       focus:placeholder-transparent"
+                        border-2 border-gray-300
+                        focus:ring-0 focus:outline-none focus:border-blue-500
+                        !ring-0 !outline-none !border-none !border-transparent
+                        shadow-md
+                        placeholder-shown:text-gray-400 placeholder-shown:opacity-100
+                        focus:placeholder-transparent"
             placeholder="Digite seu nome"
             value={userName}
             onChange={handleNameInputChange}

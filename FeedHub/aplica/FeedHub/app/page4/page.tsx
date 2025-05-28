@@ -4,10 +4,19 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 
+// --- ADICIONE ESTAS LINHAS AQUI ---
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// Recomendação: Adicione uma verificação para garantir que a URL esteja definida
+if (!API_BASE_URL) {
+  console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As conexões WebSocket podem falhar.");
+}
+// -------------------------------
+
 export default function ProfileContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   const [userName, setUserName] = useState("Convidado");
   const [currentAvatarColor, setCurrentAvatarColor] = useState("#A8CFF5");
   const [roomPin, setRoomPin] = useState<string | null>(null);
@@ -36,9 +45,21 @@ export default function ProfileContent() {
       studentIdFromUrl &&
       (!webSocketRef.current || webSocketRef.current.readyState === WebSocket.CLOSED)
     ) {
-      const ws = new WebSocket(
-        `ws://localhost:3001/ws/rooms/${pinFromUrl}?student_id=${studentIdFromUrl}`
-      );
+      // --- ADICIONE ESTA VERIFICAÇÃO ANTES DA CONEXÃO WS ---
+      if (!API_BASE_URL) {
+          console.error("Erro: API_BASE_URL não está definida para conexão WebSocket.");
+          return;
+      }
+
+      // Para WebSocket, você precisa determinar se é http ou https.
+      // Assumindo que se a API_BASE_URL é https, o WebSocket também é wss.
+      const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
+      const wsUrl = `${wsProtocol}://${API_BASE_URL.split('//')[1]}/ws/rooms/${pinFromUrl}?student_id=${studentIdFromUrl}`;
+      // ---------------------------------------------------
+
+      // --- MODIFIQUE ESTA LINHA ---
+      const ws = new WebSocket(wsUrl);
+      // --------------------------
       webSocketRef.current = ws;
 
       ws.onopen = () => {
@@ -48,7 +69,7 @@ export default function ProfileContent() {
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
         console.log("Mensagem WebSocket recebida:", message);
-        
+
         if (message.type === "student-list-update") {
           setConnectedStudents(message.students);
         }
@@ -72,7 +93,7 @@ export default function ProfileContent() {
         webSocketRef.current = null;
       };
     }
-  }, [searchParams, router, userName]);
+  }, [searchParams, router, userName, API_BASE_URL]); // Adicione API_BASE_URL como dependência
 
   return (
     <div className="flex min-h-screen w-screen flex-col items-center justify-center relative overflow-hidden">

@@ -3,15 +3,112 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { LucideClipboard } from "lucide-react"
+import { LucideClipboard, QrCode as QrCodeIcon, Settings as SettingsIcon } from "lucide-react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
+import toast from 'react-hot-toast';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface Student {
   student_id: string
   name: string
   avatar_color: string
 }
+
+// --- ADICIONE ESTAS LINHAS AQUI ---
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+// A URL base do frontend para o QR Code (geralmente o próprio domínio do Vercel)
+const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_BASE_URL || 'https://feedhub-theta.vercel.app'; // Use sua URL real do Vercel aqui
+
+// Recomendação: Adicione uma verificação para garantir que a URL esteja definida
+if (!API_BASE_URL) {
+  console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API podem falhar.");
+}
+if (!FRONTEND_BASE_URL) {
+    console.error("Erro: NEXT_PUBLIC_FRONTEND_BASE_URL não está definida! O QR Code pode gerar uma URL inválida.");
+}
+// -------------------------------
+
+// Componente simples de Modal para o QR Code
+const QRModal = ({ url, pin, onClose }: { url: string; pin: string; onClose: () => void }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 shadow-xl flex flex-col items-center max-w-sm w-full">
+        <h2 className="text-2xl font-bold mb-4 text-gray-800 text-center">Escaneie para entrar na sala</h2>
+        <p className="text-4xl font-bold text-blue-600 mb-4 tracking-wider">
+          {pin}
+        </p>
+        <div className="p-4 bg-gray-100 rounded-md">
+          <QRCodeSVG
+            value={url}
+            size={256}
+            level="H"
+            bgColor="#ffffff"
+            fgColor="#000000"
+          />
+        </div>
+        <p className="mt-4 text-gray-600 break-all text-center text-sm">{url}</p>
+        <Button onClick={onClose} className="mt-6 bg-blue-500 hover:bg-blue-600 text-white">
+          Fechar
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// Componente: ConfigurationModal para configurar a pergunta
+const ConfigurationModal = ({
+  onClose,
+  currentQuestion,
+  onSaveQuestion,
+}: {
+  onClose: () => void;
+  currentQuestion: string;
+  onSaveQuestion: (question: string) => void;
+}) => {
+  const [question, setQuestion] = useState(currentQuestion); // Estado interno para o input da pergunta
+
+  const handleSave = () => {
+    if (question.trim() === "") {
+      toast.error("A pergunta não pode estar vazia.");
+      return;
+    }
+    onSaveQuestion(question);
+    onClose(); // Fecha o modal após salvar
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 shadow-xl flex flex-col items-center max-w-lg w-full">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center">Configurar Pergunta</h2>
+
+        <div className="w-full mb-4">
+          <label htmlFor="question-input" className="block text-gray-700 text-sm font-bold mb-2">
+            Perguntar aos alunos:
+          </label>
+          <textarea
+            id="question-input"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            rows={5}
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline resize-none"
+            placeholder="Digite a pergunta que será feita aos alunos..."
+          ></textarea>
+        </div>
+
+        <div className="flex gap-4 mt-4">
+          <Button onClick={handleSave} className="bg-green-500 hover:bg-green-600 text-white">
+            Salvar Pergunta
+          </Button>
+          <Button onClick={onClose} className="bg-gray-300 hover:bg-gray-400 text-gray-800">
+            Cancelar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 export default function GameWaitingRoom() {
   const router = useRouter()
@@ -27,13 +124,22 @@ export default function GameWaitingRoom() {
   const studentsPerPage = 4
   const [startIndex, setStartIndex] = useState(0)
 
-  // Para WebSocket precisar usar useRef para manter a referência
   const webSocketRef = useRef<WebSocket | null>(null)
 
-  // Variáveis para passar na URL do redirecionamento (ajuste conforme seu contexto)
   const roomPin = urlPin || ""
-  const teacherId = "professor" // coloque o id correto do professor, ou busque do contexto
-  const userName = "Professor"  // mesmo aqui, ajuste conforme necessário
+  const teacherId = "professor"
+  const userName = "Professor"
+
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [roomEntryUrl, setRoomEntryUrl] = useState("");
+
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [currentRoomQuestion, setCurrentRoomQuestion] = useState("Qual a sua expectativa para a aula de hoje?"); // Pergunta padrão
+
+
+  // --- REMOVA ESTA LINHA ---
+  // const STUDENT_ENTRY_BASE_URL = "http://localhost:3000/page3";
+
 
   const generateUniqueKey = (student: Student) => {
     return student.student_id
@@ -64,10 +170,20 @@ export default function GameWaitingRoom() {
       return
     }
 
+    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DAS CHAMADAS DE API ---
+    if (!API_BASE_URL) {
+        toast.error('Configuração de API inválida. Contate o suporte.');
+        setLoadingStudents(false);
+        return;
+    }
+    // -----------------------------------------------------------
+
     setLoadingStudents(true)
     setError(null)
     try {
-      const res = await fetch(`http://localhost:3001/api/rooms/${urlPin}/panel`, {
+      // --- MODIFIQUE ESTA LINHA ---
+      const res = await fetch(`${API_BASE_URL}/api/rooms/${urlPin}/panel`, {
+      // --------------------------
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -87,25 +203,42 @@ export default function GameWaitingRoom() {
       }))
 
       setConnectedStudents(studentsWithValidColors)
+
     } catch (err: any) {
       setError(`Erro ao carregar alunos: ${err.message}`)
+      toast.error(`Erro ao carregar alunos: ${err.message}`);
     } finally {
       setLoadingStudents(false)
     }
   }, [urlPin])
 
-  // Função para iniciar a atividade
   const startActivity = () => {
     if (webSocketRef.current && webSocketRef.current.readyState === WebSocket.OPEN) {
       const message = JSON.stringify({ type: "activity-started" })
       webSocketRef.current.send(message)
       console.log("Mensagem 'activity-started' enviada para a sala:", roomPin)
+      toast.success("Atividade iniciada para os alunos!");
 
-      router.push(`/page6?pin=${roomPin}&teacher_id=${teacherId}&name=${encodeURIComponent(userName)}`)
+      router.push(`/page6?pin=${roomPin}&teacher_id=${teacherId}&name=${encodeURIComponent(userName)}&question=${encodeURIComponent(currentRoomQuestion)}`);
     } else {
       console.error("WebSocket não está aberto para enviar a mensagem.")
+      toast.error("Erro: Conexão com a sala não está ativa para iniciar a atividade.");
     }
   }
+
+  // NOVA FUNÇÃO: Enviar a pergunta para os alunos via WebSocket
+  const sendQuestionToStudents = useCallback((questionText: string) => {
+    if (webSocketRef.current && webSocketRef.current.readyState === WebSocket.OPEN) {
+      const message = JSON.stringify({ type: "question-update", question: questionText });
+      webSocketRef.current.send(message);
+      console.log(`Pergunta '${questionText}' enviada para a sala: ${roomPin}`);
+      toast.success("Pergunta da sala atualizada!");
+    } else {
+      console.error("WebSocket não está aberto para enviar a atualização da pergunta.");
+      toast.error("Erro: Conexão com a sala não está ativa para alterar a pergunta.");
+    }
+  }, [roomPin]);
+
 
   useEffect(() => {
     if (!urlPin) {
@@ -116,7 +249,27 @@ export default function GameWaitingRoom() {
 
     setPin(urlPin.replace(/(\d{3})(\d{3})/, "$1 $2"))
 
-    const ws = new WebSocket(`ws://localhost:3001/ws/rooms/${urlPin}?student_id=professor`)
+    // --- MODIFIQUE ESTA LINHA PARA USAR FRONTEND_BASE_URL ---
+    if (!FRONTEND_BASE_URL) {
+        console.error("Erro: FRONTEND_BASE_URL não está definida para gerar URL do QR Code.");
+        setError("Erro de configuração. Contate o suporte.");
+        return;
+    }
+    setRoomEntryUrl(`${FRONTEND_BASE_URL}/page3?pin=${encodeURIComponent(urlPin)}`);
+    // -----------------------------------------------------------
+
+    // --- MODIFIQUE ESTA LINHA PARA USAR API_BASE_URL ---
+    if (!API_BASE_URL) {
+        console.error("Erro: API_BASE_URL não está definida para conexão WebSocket.");
+        setError("Erro de configuração. Contate o suporte.");
+        return;
+    }
+    // Para WebSocket, você precisa determinar se é http ou https.
+    // Assumindo que se a API_BASE_URL é https, o WebSocket também é wss.
+    const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
+    const wsUrl = `${wsProtocol}://${API_BASE_URL.split('//')[1]}/ws/rooms/${urlPin}?student_id=professor`;
+    const ws = new WebSocket(wsUrl);
+    // ---------------------------------------------------
     webSocketRef.current = ws
 
     ws.onopen = () => {
@@ -134,50 +287,98 @@ export default function GameWaitingRoom() {
         setConnectedStudents(studentsWithValidColors)
       } else if (message.type === "start-activity") {
         setActivityStarted(true)
+      } else if (message.type === "question-update") { // Escutando por atualizações de pergunta
+        setCurrentRoomQuestion(message.question);
       }
     }
 
     ws.onerror = () => {
       setError("Erro na conexão em tempo real com a sala. Por favor, recarregue a página.")
+      toast.error("Erro na conexão com a sala. Por favor, recarregue a página.");
       fetchInitialConnectedStudents()
     }
 
     ws.onclose = () => {
       console.log("WebSocket desconectado.")
+      toast.error("Conexão com a sala perdida. Recarregue a página.");
     }
 
     return () => {
       ws.close()
     }
-  }, [urlPin, fetchInitialConnectedStudents])
+  }, [urlPin, fetchInitialConnectedStudents, sendQuestionToStudents, FRONTEND_BASE_URL, API_BASE_URL]) // Adicione FRONTEND_BASE_URL e API_BASE_URL como dependências
 
   const handleStartActivity = async () => {
+    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DAS CHAMADAS DE API ---
+    if (!API_BASE_URL) {
+        toast.error('Configuração de API inválida. Contate o suporte.');
+        return;
+    }
+    // -----------------------------------------------------------
     try {
-      await fetch(`http://localhost:3001/api/rooms/${urlPin}/start`, {
+      // --- MODIFIQUE ESTA LINHA ---
+      const res = await fetch(`${API_BASE_URL}/api/rooms/${urlPin}/start`, {
+      // --------------------------
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ from: "teacher" })
       })
-      // Depois de mandar o start para o backend, envie a mensagem WS e redirecione:
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Falha ao enviar comando de início de atividade.");
+      }
+
       startActivity()
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao iniciar atividade:", err)
+      toast.error(`Falha ao iniciar atividade: ${err.message}`);
     }
   }
 
   useEffect(() => {
     if (activityStarted) {
-      router.push(`/page4?pin=${urlPin}`)
+      router.push(`/page6?pin=${urlPin}&teacher_id=${teacherId}&name=${encodeURIComponent(userName)}&question=${encodeURIComponent(currentRoomQuestion)}`);
     }
-  }, [activityStarted, router, urlPin])
+  }, [activityStarted, router, urlPin, teacherId, userName, currentRoomQuestion])
+
 
   const handleLogout = () => {
     router.push("/")
+    toast("Você foi desconectado.");
   }
 
   const handleCopyPin = () => {
-    if (pin) navigator.clipboard.writeText(pin.replace(/\s/g, ""))
+    if (pin) {
+      navigator.clipboard.writeText(pin.replace(/\s/g, ""));
+      toast.success("PIN copiado para a área de transferência!");
+    } else {
+      toast.error("Não foi possível copiar o PIN.");
+    }
   }
+
+  const handleOpenQRModal = () => {
+    setIsQRModalOpen(true);
+  };
+
+  const handleCloseQRModal = () => {
+    setIsQRModalOpen(false);
+  };
+
+  // Funções para o Modal de Configuração
+  const handleOpenConfigModal = () => {
+    setIsConfigModalOpen(true);
+  };
+
+  const handleCloseConfigModal = () => {
+    setIsConfigModalOpen(false);
+  };
+
+  const handleSaveConfigQuestion = (question: string) => {
+    setCurrentRoomQuestion(question); // Atualiza o estado da pergunta no GameWaitingRoom
+    sendQuestionToStudents(question); // Envia a pergunta atualizada via WebSocket
+  };
+
 
   return (
     <div className="h-screen flex flex-col p-4 overflow-hidden">
@@ -250,11 +451,35 @@ export default function GameWaitingRoom() {
         </Button>
 
         <div className="flex justify-center gap-3">
-          <Button variant="ghost" size="sm">QR Code</Button>
-          <Button variant="ghost" size="sm">Temas</Button>
-          <Button variant="ghost" size="sm">Configurações</Button>
+          <Button variant="ghost" size="sm" onClick={handleOpenQRModal}>
+            <QrCodeIcon className="w-5 h-5 mr-1" /> QR Code
+          </Button>
         </div>
       </div>
+
+      <div className="absolute bottom-4 right-4 flex gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleOpenConfigModal}
+          className="bg-white/80 backdrop-blur-sm shadow-md"
+        >
+          <SettingsIcon className="w-5 h-5 mr-1" /> Configurações
+        </Button>
+      </div>
+
+
+      {isQRModalOpen && roomEntryUrl && (
+        <QRModal url={roomEntryUrl} pin={pin} onClose={handleCloseQRModal} />
+      )}
+
+      {isConfigModalOpen && (
+        <ConfigurationModal
+          onClose={handleCloseConfigModal}
+          currentQuestion={currentRoomQuestion}
+          onSaveQuestion={handleSaveConfigQuestion}
+        />
+      )}
     </div>
   )
 }

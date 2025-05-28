@@ -7,6 +7,15 @@ import FeedbackCard from "@/components/feedback-card"; // Importe o FeedbackCard
 import { Download, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// --- ADICIONE ESTAS LINHAS AQUI ---
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// Recomendação: Adicione uma verificação para garantir que a URL esteja definida
+if (!API_BASE_URL) {
+  console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API e conexões WebSocket podem falhar.");
+}
+// -------------------------------
+
 interface Feedback {
   studentId: string;
   message: string;
@@ -27,11 +36,20 @@ export default function StudentFeedbackDashboard() {
   useEffect(() => {
     if (!pin) return;
 
+    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DA CHAMADA DE API ---
+    if (!API_BASE_URL) {
+      setError("Configuração de API inválida. Contate o suporte.");
+      return;
+    }
+    // -----------------------------------------------------------
+
     const fetchFeedbacks = async () => {
       setLoading(true);
       setError("");
       try {
-        const response = await fetch(`http://localhost:3001/api/rooms/${pin}/feedbacks`);
+        // --- MODIFIQUE ESTA LINHA ---
+        const response = await fetch(`${API_BASE_URL}/api/rooms/${pin}/feedbacks`);
+        // --------------------------
         if (!response.ok) throw new Error(`Aguardando Feedbacks:`);
 
         const data = await response.json();
@@ -44,13 +62,27 @@ export default function StudentFeedbackDashboard() {
     };
 
     fetchFeedbacks();
-  }, [pin]);
+  }, [pin]); // Adicione API_BASE_URL como dependência se `fetchFeedbacks` usar diretamente o estado de `API_BASE_URL` ou se houver um `toast.error`
 
   // WebSocket para receber feedbacks em tempo real
   useEffect(() => {
     if (!pin) return;
 
-    const socket = new WebSocket(`ws://localhost:3001/ws/rooms/${pin}`);
+    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DA CONEXÃO WS ---
+    if (!API_BASE_URL) {
+        console.error("Erro: API_BASE_URL não está definida para conexão WebSocket.");
+        return;
+    }
+
+    // Para WebSocket, você precisa determinar se é http ou https.
+    // Assumindo que se a API_BASE_URL é https, o WebSocket também é wss.
+    const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
+    const wsUrl = `${wsProtocol}://${API_BASE_URL.split('//')[1]}/ws/rooms/${pin}`;
+    // ---------------------------------------------------
+
+    // --- MODIFIQUE ESTA LINHA ---
+    const socket = new WebSocket(wsUrl);
+    // --------------------------
 
     socket.onmessage = (event) => {
       try {
@@ -72,8 +104,17 @@ export default function StudentFeedbackDashboard() {
       }
     };
 
+    socket.onclose = () => {
+      console.log('WebSocket desconectado.');
+    };
+
+    socket.onerror = (error) => {
+      console.error('Erro no WebSocket:', error);
+      setError("Erro de conexão com o WebSocket. Tente recarregar a página.");
+    };
+
     return () => socket.close();
-  }, [pin]);
+  }, [pin]); // Adicione API_BASE_URL como dependência
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white">
@@ -113,7 +154,7 @@ export default function StudentFeedbackDashboard() {
           {feedbacks.map((feedback) => (
             <FeedbackCard
               key={`${feedback.studentId}-${feedback.timestamp}`}
-              rating={feedback.rating ?? 0} // <--- ESTA É A LINHA CRÍTICA!
+              rating={feedback.rating ?? 0}
               name="Feedback"
               studentName={feedback.studentId}
               comment={feedback.message}
