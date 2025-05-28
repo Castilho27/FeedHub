@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, Suspense } from "react" // Importe Suspense
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { LucideClipboard, QrCode as QrCodeIcon, Settings as SettingsIcon } from "lucide-react"
@@ -15,25 +15,22 @@ interface Student {
   avatar_color: string
 }
 
-// --- VARIÁVEIS DE AMBIENTE (Configuradas no Vercel para o Frontend) ---
-// Em PRODUÇÃO, 'process.env.NEXT_PUBLIC_API_BASE_URL' será a URL do seu backend Clojure no Vercel.
-// Exemplo (valor real virá do Vercel):
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL; // Ex: "https://seu-backend-feedhub-abc.vercel.app"
+// --- VARIÁVEIS DE AMBIENTE ---
+// Estas variáveis são carregadas do ambiente de build/runtime do Vercel.
+// Elas devem ser configuradas no painel do Vercel para o seu projeto de frontend.
+// O prefixo NEXT_PUBLIC_ as torna disponíveis tanto no lado do servidor (para prerendering)
+// quanto no lado do cliente (no navegador).
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_BASE_URL || 'http://localhost:3000'; // Fallback para desenvolvimento local
 
-// Em PRODUÇÃO, 'process.env.NEXT_PUBLIC_FRONTEND_BASE_URL' será a URL do seu frontend no Vercel.
-// O fallback "http://localhost:3000" é útil para desenvolvimento local.
-// Exemplo (valor real virá do Vercel):
-const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_BASE_URL || 'http://localhost:3000'; // Ex: "https://feedhub-23tvx8h71-castilho27s-projects.vercel.app"
-
-// Verificações para ajudar no desenvolvimento e depuração
+// Recomendações: Adicione verificações para ajudar na depuração.
 if (!API_BASE_URL) {
-  console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API podem falhar. Configure no Vercel.");
-  // Em um cenário real, você pode querer renderizar uma mensagem de erro na UI.
+  console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API podem falhar. Por favor, configure esta variável no Vercel.");
 }
 if (!FRONTEND_BASE_URL) {
-    console.error("Erro: NEXT_PUBLIC_FRONTEND_BASE_URL não está definida! O QR Code pode gerar uma URL inválida. Configure no Vercel.");
+    console.error("Erro: NEXT_PUBLIC_FRONTEND_BASE_URL não está definida! O QR Code pode gerar uma URL inválida. Por favor, configure esta variável no Vercel.");
 }
-// ------------------------------------------------------------------
+// ----------------------------
 
 // Componente simples de Modal para o QR Code
 const QRModal = ({ url, pin, onClose }: { url: string; pin: string; onClose: () => void }) => {
@@ -116,9 +113,27 @@ const ConfigurationModal = ({
 };
 
 
+// Componente principal GameWaitingRoom
+// Envolvemos o conteúdo que usa useSearchParams com Suspense
 export default function GameWaitingRoom() {
+  return (
+    // Adicione um Suspense Boundary aqui para lidar com useSearchParams()
+    // O fallback é o que será exibido enquanto o componente real está carregando no cliente.
+    <Suspense fallback={
+        <div className="h-screen flex items-center justify-center text-xl text-gray-600">
+            Carregando sala de espera...
+        </div>
+    }>
+      <GameWaitingRoomContent />
+    </Suspense>
+  )
+}
+
+// NOVO COMPONENTE: Onde o useSearchParams é realmente utilizado.
+// Este componente será renderizado no cliente após o Suspense.
+function GameWaitingRoomContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams() // Agora seguro dentro de um componente cliente sob Suspense
   const urlPin = searchParams.get("pin")
 
   const [pin, setPin] = useState("000 000")
@@ -171,20 +186,16 @@ export default function GameWaitingRoom() {
       return
     }
 
-    // --- VERIFICAÇÃO ADICIONAL ANTES DA CHAMADA DE API ---
     if (!API_BASE_URL) {
         toast.error('Configuração de API inválida. Contate o suporte.');
         setLoadingStudents(false);
         return;
     }
-    // -----------------------------------------------------------
 
     setLoadingStudents(true)
     setError(null)
     try {
-      // --- USANDO API_BASE_URL ---
       const res = await fetch(`${API_BASE_URL}/api/rooms/${urlPin}/panel`, {
-      // --------------------------
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -227,7 +238,6 @@ export default function GameWaitingRoom() {
     }
   }
 
-  // NOVA FUNÇÃO: Enviar a pergunta para os alunos via WebSocket
   const sendQuestionToStudents = useCallback((questionText: string) => {
     if (webSocketRef.current && webSocketRef.current.readyState === WebSocket.OPEN) {
       const message = JSON.stringify({ type: "question-update", question: questionText });
@@ -250,28 +260,21 @@ export default function GameWaitingRoom() {
 
     setPin(urlPin.replace(/(\d{3})(\d{3})/, "$1 $2"))
 
-    // --- USANDO FRONTEND_BASE_URL PARA O QR CODE ---
     if (!FRONTEND_BASE_URL) {
         console.error("Erro: FRONTEND_BASE_URL não está definida para gerar URL do QR Code.");
         setError("Erro de configuração. Contate o suporte.");
         return;
     }
     setRoomEntryUrl(`${FRONTEND_BASE_URL}/page3?pin=${encodeURIComponent(urlPin)}`);
-    // -----------------------------------------------------------
 
-    // --- USANDO API_BASE_URL PARA O WEBSOCKET ---
     if (!API_BASE_URL) {
         console.error("Erro: API_BASE_URL não está definida para conexão WebSocket.");
         setError("Erro de configuração. Contate o suporte.");
         return;
     }
-    // Para WebSocket, você precisa determinar se é http ou https.
-    // Assumindo que se a API_BASE_URL é https, o WebSocket também é wss.
     const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
-    // Remove o "http://" ou "https://" da API_BASE_URL para construir a URL do WebSocket
-    const wsHost = API_BASE_URL.split('//')[1];
+    const wsHost = API_BASE_URL.split('//')[1]; // Remove "http://" or "https://"
     const wsUrl = `${wsProtocol}://${wsHost}/ws/rooms/${urlPin}?student_id=professor`;
-    // ---------------------------------------------------
 
     const ws = new WebSocket(wsUrl);
     webSocketRef.current = ws
@@ -291,7 +294,7 @@ export default function GameWaitingRoom() {
         setConnectedStudents(studentsWithValidColors)
       } else if (message.type === "start-activity") {
         setActivityStarted(true)
-      } else if (message.type === "question-update") { // Escutando por atualizações de pergunta
+      } else if (message.type === "question-update") {
         setCurrentRoomQuestion(message.question);
       }
     }
@@ -310,19 +313,15 @@ export default function GameWaitingRoom() {
     return () => {
       ws.close()
     }
-  }, [urlPin, fetchInitialConnectedStudents, sendQuestionToStudents, FRONTEND_BASE_URL, API_BASE_URL]) // Adicione FRONTEND_BASE_URL e API_BASE_URL como dependências
+  }, [urlPin, fetchInitialConnectedStudents, sendQuestionToStudents, FRONTEND_BASE_URL, API_BASE_URL])
 
   const handleStartActivity = async () => {
-    // --- VERIFICAÇÃO ADICIONAL ANTES DA CHAMADA DE API ---
     if (!API_BASE_URL) {
         toast.error('Configuração de API inválida. Contate o suporte.');
         return;
     }
-    // -----------------------------------------------------------
     try {
-      // --- USANDO API_BASE_URL ---
       const res = await fetch(`${API_BASE_URL}/api/rooms/${urlPin}/start`, {
-      // --------------------------
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ from: "teacher" })
@@ -369,7 +368,6 @@ export default function GameWaitingRoom() {
     setIsQRModalOpen(false);
   };
 
-  // Funções para o Modal de Configuração
   const handleOpenConfigModal = () => {
     setIsConfigModalmOpen(true);
   };
@@ -379,8 +377,8 @@ export default function GameWaitingRoom() {
   };
 
   const handleSaveConfigQuestion = (question: string) => {
-    setCurrentRoomQuestion(question); // Atualiza o estado da pergunta no GameWaitingRoom
-    sendQuestionToStudents(question); // Envia a pergunta atualizada via WebSocket
+    setCurrentRoomQuestion(question);
+    sendQuestionToStudents(question);
   };
 
 
@@ -471,7 +469,6 @@ export default function GameWaitingRoom() {
           <SettingsIcon className="w-5 h-5 mr-1" /> Configurações
         </Button>
       </div>
-
 
       {isQRModalOpen && roomEntryUrl && (
         <QRModal url={roomEntryUrl} pin={pin} onClose={handleCloseQRModal} />
