@@ -1,4 +1,5 @@
 # Etapa 1: Compilar o uberjar
+# O comentário sobre a imagem clojure foi movido para uma linha separada.
 FROM clojure:openjdk-21-lein as builder
 
 WORKDIR /app
@@ -12,7 +13,7 @@ RUN lein deps
 RUN lein uberjar
 
 # Etapa 2: Imagem mais leve para rodar
-# Abaixo, a instrução FROM deve estar sozinha em sua linha, sem comentários ou outros caracteres.
+# O comentário sobre a imagem eclipse-temurin foi movido para uma linha separada.
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
