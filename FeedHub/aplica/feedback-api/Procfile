@@ -1,1 +1,1 @@
-web: java -jar target/feedback-api-standalone.jar
+web: java -jar target/uberjar/feedback-api-standalone.jar
