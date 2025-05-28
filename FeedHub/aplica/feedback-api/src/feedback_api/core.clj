@@ -14,8 +14,10 @@
 (def rooms (atom {}))
 (def active-connections (atom {}))
 (def ws-connections (atom {}))
-(def feedbacks (atom {})) 
+(def feedbacks (atom {}))
 
+;; Esta linha não precisa ser modificada para o CORS aberto,
+;; mas ainda é bom ter um valor padrão caso não usem a variável de ambiente.
 (def frontend-url (or (System/getenv "FRONTEND_URL") "https://feedhub-omega.vercel.app/"))
 
 
@@ -69,11 +71,11 @@
 ;; Remove um aluno da lista
 (defn remove-student-from-room [pin student-id]
   (swap! rooms update-in [pin :connected-students]
-                (fn [students]
-                  (vec (remove #(= student-id (:student-id %)) students))))
+                 (fn [students]
+                   (vec (remove #(= student-id (:student-id %)) students))))
   (swap! active-connections update pin
-                (fn [connections]
-                  (vec (remove #(= student-id (:student-id %)) connections))))
+                 (fn [connections]
+                   (vec (remove #(= student-id (:student-id %)) connections))))
   (broadcast-student-list pin))
 
 ;; Envia cada aluno para uma página diferente
@@ -89,7 +91,7 @@
   (when-let [professor-ws (get-in @ws-connections [pin "professor"])]
     (println "Professor encontrado, enviando feedback:" feedback)
     (httpkit/send! professor-ws
-                     (json/write-str {:type "feedback" :data feedback}))))
+                      (json/write-str {:type "feedback" :data feedback}))))
 
 (defn validate-feedback [rating comment]
   (and (integer? rating)
@@ -274,7 +276,7 @@
                 (notify-new-feedback pin feedback)
                 (response {:status "success" :feedback feedback})))))
 
-  ;; NOVO ENDPOINT: status da sala (sem mudanças)
+  ;; Caso a sala não exista
   (GET "/api/rooms/:pin/status" [pin]
     (if-let [room (get @rooms pin)]
       (response {:pin pin
@@ -285,23 +287,18 @@
                   :current-question (:current-question room)})
       (not-found {:status "error"
                   :message "Sala não encontrada"}))))
-;; Middleware
 (def app
   (-> app-routes
-     
-      ;; Agora, 'frontend-url' é usada para criar um padrão de regex
-      ;; que permite requisições CORS vindas da URL do seu frontend.
-      ;; wrap-cors aceita uma lista de strings ou regex patterns.
-      (wrap-cors :access-control-allow-origin [(re-pattern (str "^" (java.util.regex.Pattern/quote frontend-url) "(:\\d{1,5})?$"))]
+      (wrap-cors :access-control-allow-origin ["*"]
                  :access-control-allow-methods [:get :post :put :delete :options]
                  :access-control-allow-headers ["Content-Type" "Authorization"]
-                 :access-control-allow-credentials true)
+                 :access-control-allow-credentials false) ;; ESSA LINHA FOI ALTERADA PARA false
       wrap-json-response
       (wrap-json-body {:keywords? true})
       wrap-params))
 
-;; FUNÇÃO PRINCIPAL para lein run
+;; Iniciador
 (defn -main [& args]
   (println "Servidor iniciado na porta 3001")
-  (println "Frontend URL permitida para CORS:" frontend-url) ;; CORRIGIDO AQUI
+  (println "Frontend URL permitida para CORS:" frontend-url)
   (httpkit/run-server #'app {:port 3001}))
