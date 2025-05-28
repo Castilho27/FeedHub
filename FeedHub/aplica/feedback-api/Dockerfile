@@ -20,7 +20,7 @@ WORKDIR /app
 COPY --from=builder /app/target/feedback-api-standalone.jar /app/app.jar
 
 # Expor a porta que sua API usa (ajuste conforme necessário)
-EXPOSE 3000
+EXPOSE 3001
 
 # Comando para iniciar a aplicação
 CMD ["java", "-jar", "app.jar"]
