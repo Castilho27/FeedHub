@@ -19,12 +19,14 @@
 
 ;; Define a URL do frontend a partir da variável de ambiente
 ;; Se a variável não estiver definida (ex: em ambiente de desenvolvimento local),
-;; ele usará "http://localhost:3000" como fallback.
-;; --- MODIFICAÇÃO IMPORTANTE AQUI: MANTEMOS O FALLBACK PARA FACILITAR O DESENVOLVIMENTO LOCAL
-;; É crucial que na produção você defina a variável de ambiente FRONTEND_URL.
-(def frontend-url (or (System/getenv "FRONTEND_URL") "http://localhost:3000"))
+;; ele usará "https://feedhub-theta.vercel.app/" como fallback.
+;; IMPORTANTE: MANTEMOS O FALLBACK PARA FACILITAR O DESENVOLVIMENTO LOCAL.
+;; É crucial que na produção você defina a variável de ambiente FRONTEND_URL
+;; para o seu domínio real de produção, e não deixar o fallback apontar para produção.
+;; Se quiser que em desenvolvimento local aponte para localhost, o fallback deve ser http://localhost:3000
+(def frontend-url (or (System/getenv "FRONTEND_URL") "https://feedhub-theta.vercel.app/"))
 
-;; Funções de utilidade para PIN
+;; Funções de utilidade para PIN (sem mudanças)
 (defn generate-pin []
   (format "%06d" (rand-int 1000000)))
 
@@ -34,7 +36,7 @@
       (recur (generate-pin))
       new-pin)))
 
-;; Função para criar uma nova sala
+;; Função para criar uma nova sala (sem mudanças)
 (defn create-room []
   (let [pin (unique-pin)
         room-id (str (java.util.UUID/randomUUID))]
@@ -44,7 +46,7 @@
                             :current-question "Qual a sua expectativa para a aula de hoje?"})
     {:pin pin :room-id room-id}))
 
-;; Função para transmitir a lista de alunos para todos os clientes conectados via WebSocket na sala
+;; Função para transmitir a lista de alunos para todos os clientes conectados via WebSocket na sala (sem mudanças)
 (defn broadcast-student-list [pin]
   (when-let [room-students (:connected-students (get @rooms pin))]
     (let [message-data {:type "student-list-update"
@@ -53,7 +55,7 @@
       (doseq [[_ ws-channel] (get @ws-connections pin)]
         (httpkit/send! ws-channel json-message)))))
 
-;; Função para transmitir a pergunta atual da sala para todos os clientes
+;; Função para transmitir a pergunta atual da sala para todos os clientes (sem mudanças)
 (defn broadcast-question-update [pin question]
   (let [message-data {:type "question-update"
                        :question question}
@@ -61,7 +63,7 @@
     (doseq [[_ ws-channel] (get @ws-connections pin)]
       (httpkit/send! ws-channel json-message))))
 
-;; Função para adicionar ou atualizar um aluno na lista de alunos conectados da sala
+;; Função para adicionar ou atualizar um aluno na lista de alunos conectados da sala (sem mudanças)
 (defn add-student-to-room [pin student]
   (let [student-id (:student-id student)]
     (swap! rooms update-in [pin :connected-students]
@@ -72,24 +74,24 @@
                  (conj students student)))))
     (broadcast-student-list pin)))
 
-;; Função para remover um aluno da lista de alunos conectados da sala
+;; Função para remover um aluno da lista de alunos conectados da sala (sem mudanças)
 (defn remove-student-from-room [pin student-id]
   (swap! rooms update-in [pin :connected-students]
-               (fn [students]
-                 (vec (remove #(= student-id (:student-id %)) students))))
+                (fn [students]
+                  (vec (remove #(= student-id (:student-id %)) students))))
   (swap! active-connections update pin
-               (fn [connections]
-                 (vec (remove #(= student-id (:student-id %)) connections))))
+                (fn [connections]
+                  (vec (remove #(= student-id (:student-id %)) connections))))
   (broadcast-student-list pin))
 
-;; Função nova: Enviar comando para navegar para uma página específica para um aluno
+;; Função nova: Enviar comando para navegar para uma página específica para um aluno (sem mudanças)
 (defn send-navigate-page [pin student-id page-number]
   (when-let [ws-channel (get-in @ws-connections [pin student-id])]
     (let [msg {:type "navigate" :page page-number}
           json-msg (json/write-str msg)]
       (httpkit/send! ws-channel json-msg))))
 
-;; FUNÇÕES AUXILIARES DE FEEDBACK
+;; FUNÇÕES AUXILIARES DE FEEDBACK (sem mudanças)
 ;; Modificado para enviar o feedback completo, incluindo rating e comment
 (defn notify-new-feedback [pin feedback]
   (println "Tentando notificar professor sobre novo feedback - PIN:" pin)
@@ -98,7 +100,7 @@
     (httpkit/send! professor-ws
                      (json/write-str {:type "feedback" :data feedback}))))
 
-;; A validação agora deve considerar os campos separados
+;; A validação agora deve considerar os campos separados (sem mudanças)
 (defn validate-feedback [rating comment]
   (and (integer? rating)
        (>= rating 1)
@@ -107,7 +109,7 @@
        (>= (count comment) 2)
        (<= (count comment) 500)))
 
-;; Modificado para aceitar rating e comment separadamente, e incluir o pin
+;; Modificado para aceitar rating e comment separadamente, e incluir o pin (sem mudanças)
 (defn add-feedback [pin student-id rating comment]
   (let [feedback {:student-id student-id
                   :rating rating
@@ -118,7 +120,7 @@
     (swap! feedbacks update pin (fnil conj []) feedback)
     feedback))
 
-;; Manipulador de WebSocket
+;; Manipulador de WebSocket (sem mudanças)
 (defn ws-handler [request]
   (println "Nova conexão WebSocket recebida")
   (httpkit/with-channel request ws-channel
@@ -166,8 +168,8 @@
                                                  (= (:type msg) "feedback")
                                                  ;; Se o aluno enviar feedback via WS (o que não acontece atualmente no seu frontend)
                                                  (let [feedback (add-feedback pin student-id
-                                                                                (:rating msg)
-                                                                                (:comment msg))]
+                                                                               (:rating msg)
+                                                                               (:comment msg))]
                                                    (notify-new-feedback pin feedback))))
                                              (catch Exception e
                                                (println "Erro ao processar mensagem WebSocket do aluno:" e)))))
@@ -190,9 +192,9 @@
   (GET "/" []
     {:status 200
       :body {:message "API FeedHub - Feedback de Professores"
-             :version "1.0.0"}})
+            :version "1.0.0"}})
 
-  ;; Rota para obter feedbacks: Retorna todos os campos, incluindo pin, rating e comment
+  ;; Rota para obter feedbacks: Retorna todos os campos, incluindo pin, rating e comment (sem mudanças)
   (GET "/api/rooms/:pin/feedbacks" [pin]
     (if-let [room-feedbacks (get @feedbacks pin)]
       (response {:feedbacks room-feedbacks})
@@ -212,14 +214,14 @@
         (do
           (add-student-to-room pin student-data)
           (swap! active-connections update pin (fnil conj [])
-                 {:user-agent (get-in req [:headers "user-agent"])
+                {:user-agent (get-in req [:headers "user-agent"])
                   :timestamp (coerce/to-long (time/now))
                   :student-id student-id
                   :name student-name})
           (response {:status "success"
-                     :room-id (:id room)
-                     :message "Entrou na sala com sucesso!"
-                     :student-id student-id}))
+                      :room-id (:id room)
+                      :message "Entrou na sala com sucesso!"
+                      :student-id student-id}))
         (not-found {:status "error"
                     :message "PIN inválido ou sala não encontrada"}))))
 
@@ -234,7 +236,7 @@
           (not-found {:status "error"
                       :message "Sala não encontrada."}))
         {:status 400
-         :body {:message "PIN da sala ou ID do aluno ausente."}})))
+          :body {:message "PIN da sala ou ID do aluno ausente."}})))
 
   (GET "/ws/rooms/:pin" [] ws-handler)
 
@@ -263,7 +265,7 @@
       (not-found {:status "error"
                   :message "Sala não encontrada"})))
 
-  ;; NOVO ENDPOINT: Forçar navegação do aluno para uma página
+  ;; NOVO ENDPOINT: Forçar navegação do aluno para uma página (sem mudanças)
   (POST "/api/rooms/:pin/students/:student-id/navigate" [pin student-id :as req]
     (let [page (get-in req [:body :page])]
       (if (and (get @rooms pin) (get-in @ws-connections [pin student-id]))
@@ -274,7 +276,7 @@
         (not-found {:status "error"
                     :message "Sala ou aluno não encontrado"}))))
 
-  ;; Rota para enviar feedback - AGORA COM RATING E COMMENT SEPARADOS
+  ;; Rota para enviar feedback - AGORA COM RATING E COMMENT SEPARADOS (sem mudanças)
   (POST "/api/rooms/:pin/feedback" [pin :as req]
     (let [student-id (get-in req [:body :student-id])
           rating (get-in req [:body :rating])
@@ -288,7 +290,7 @@
                 (notify-new-feedback pin feedback)
                 (response {:status "success" :feedback feedback})))))
 
-  ;; NOVO ENDPOINT: status da sala
+  ;; NOVO ENDPOINT: status da sala (sem mudanças)
   (GET "/api/rooms/:pin/status" [pin]
     (if-let [room (get @rooms pin)]
       (response {:pin pin
@@ -324,7 +326,5 @@
 ;; FUNÇÃO PRINCIPAL para lein run
 (defn -main [& args]
   (println "Servidor iniciado na porta 3001")
-  ;; --- CORREÇÃO AQUI: Movido para dentro da função -main ---
-  (println "Frontend URL permitida para CORS:" frontend-url)
-  ;; --- FIM DA CORREÇÃO ---
+  (println "Frontend URL permitida para CORS:" frontend-url) ;; CORRIGIDO AQUI
   (httpkit/run-server #'app {:port 3001}))
