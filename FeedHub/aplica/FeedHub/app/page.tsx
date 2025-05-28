@@ -8,19 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import toast from 'react-hot-toast';
 
-// --- MODIFIQUE ESTA LINHA ---
-// Agora, ele vai esperar que NEXT_PUBLIC_API_BASE_URL esteja SEMPRE definida.
-// Se não estiver, process.env.NEXT_PUBLIC_API_BASE_URL será 'undefined'
-// e as chamadas fetch podem falhar ou ir para uma URL inválida.
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-// Recomendação: Adicione uma verificação para garantir que a URL esteja definida
-// Isso pode ser útil para depuração em ambientes onde a variável pode não ser configurada
+
 if (!API_BASE_URL) {
   console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API podem falhar.");
-  // Você pode até lançar um erro ou desabilitar funcionalidades se isso for crítico
+ 
 }
-// --------------------------
+
 
 export default function Home() {
   const router = useRouter();
@@ -37,17 +33,17 @@ export default function Home() {
       return;
     }
 
-    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DAS CHAMADAS DE API ---
+   
     if (!API_BASE_URL) {
         toast.error('Configuração de API inválida. Contate o suporte.');
         return;
     }
-    // -----------------------------------------------------------
+   
 
     try {
-      // --- MODIFIQUE ESTA LINHA ---
+  
       const res = await fetch(`${API_BASE_URL}/api/rooms/${studentPin}/status`, {
-      // --------------------------
+      
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

@@ -1,6 +1,6 @@
 (defproject feedback-api "0.1.0-SNAPSHOT"
   :description "Backend em Clojure para coleta de feedbacks via PIN, com REST e WebSockets"
-  :url "https://github.com/Castilho27/feedhub"
+  :url "https://github.com/Castilho27/FeedHub"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.11.1"]

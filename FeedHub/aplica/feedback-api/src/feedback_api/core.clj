@@ -11,15 +11,14 @@
             [ring.middleware.params :refer [wrap-params]]
             [clojure.string :as str]))
 
-;; Átomos para gerenciar o estado da aplicação
 (def rooms (atom {}))
 (def active-connections (atom {}))
 (def ws-connections (atom {}))
-(def feedbacks (atom {})) ; Armazena {pin-da-sala => [{:student-id "123", :rating 8, :comment "Texto", :pin "123456", :timestamp long}]}
+(def feedbacks (atom {})) 
 
-(def frontend-url (or (System/getenv "FRONTEND_URL") "https://feedhub-theta.vercel.app/"))
+(def frontend-url (or (System/getenv "FRONTEND_URL") "https://feedhub-omega.vercel.app/"))
 
-;; Funções de utilidade para PIN (sem mudanças)
+
 (defn generate-pin []
   (format "%06d" (rand-int 1000000)))
 
@@ -29,7 +28,7 @@
       (recur (generate-pin))
       new-pin)))
 
-;; Função para criar uma nova sala (sem mudanças)
+;; Responsavel para criação da sala
 (defn create-room []
   (let [pin (unique-pin)
         room-id (str (java.util.UUID/randomUUID))]
@@ -39,7 +38,7 @@
                             :current-question "Qual a sua expectativa para a aula de hoje?"})
     {:pin pin :room-id room-id}))
 
-;; Função para transmitir a lista de alunos para todos os clientes conectados via WebSocket na sala (sem mudanças)
+;; WebSocket responsavel por comunicar a lista da sala
 (defn broadcast-student-list [pin]
   (when-let [room-students (:connected-students (get @rooms pin))]
     (let [message-data {:type "student-list-update"
@@ -48,7 +47,7 @@
       (doseq [[_ ws-channel] (get @ws-connections pin)]
         (httpkit/send! ws-channel json-message)))))
 
-;; Função para transmitir a pergunta atual da sala para todos os clientes (sem mudanças)
+;; Transmite a pergunta para todos
 (defn broadcast-question-update [pin question]
   (let [message-data {:type "question-update"
                        :question question}
@@ -56,7 +55,7 @@
     (doseq [[_ ws-channel] (get @ws-connections pin)]
       (httpkit/send! ws-channel json-message))))
 
-;; Função para adicionar ou atualizar um aluno na lista de alunos conectados da sala (sem mudanças)
+;; Atualiza a lista de alunos
 (defn add-student-to-room [pin student]
   (let [student-id (:student-id student)]
     (swap! rooms update-in [pin :connected-students]
@@ -67,7 +66,7 @@
                  (conj students student)))))
     (broadcast-student-list pin)))
 
-;; Função para remover um aluno da lista de alunos conectados da sala (sem mudanças)
+;; Remove um aluno da lista
 (defn remove-student-from-room [pin student-id]
   (swap! rooms update-in [pin :connected-students]
                 (fn [students]
@@ -77,15 +76,14 @@
                   (vec (remove #(= student-id (:student-id %)) connections))))
   (broadcast-student-list pin))
 
-;; Função nova: Enviar comando para navegar para uma página específica para um aluno (sem mudanças)
+;; Envia cada aluno para uma página diferente
 (defn send-navigate-page [pin student-id page-number]
   (when-let [ws-channel (get-in @ws-connections [pin student-id])]
     (let [msg {:type "navigate" :page page-number}
           json-msg (json/write-str msg)]
       (httpkit/send! ws-channel json-msg))))
 
-;; FUNÇÕES AUXILIARES DE FEEDBACK (sem mudanças)
-;; Modificado para enviar o feedback completo, incluindo rating e comment
+;; Compilador da menssagem de Feedback
 (defn notify-new-feedback [pin feedback]
   (println "Tentando notificar professor sobre novo feedback - PIN:" pin)
   (when-let [professor-ws (get-in @ws-connections [pin "professor"])]
@@ -93,7 +91,6 @@
     (httpkit/send! professor-ws
                      (json/write-str {:type "feedback" :data feedback}))))
 
-;; A validação agora deve considerar os campos separados (sem mudanças)
 (defn validate-feedback [rating comment]
   (and (integer? rating)
        (>= rating 1)
