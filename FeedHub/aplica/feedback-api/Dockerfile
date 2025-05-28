@@ -1,5 +1,5 @@
 # Etapa 1: Compilar o projeto
-FROM clojure:tools-deps-temurin-17-slim as builder
+FROM clojure:tools-deps-1.11.1.1165-temurin-17-slim-bullseye as builder
 
 WORKDIR /app
 COPY . .
