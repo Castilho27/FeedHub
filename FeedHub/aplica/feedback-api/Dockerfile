@@ -1,6 +1,5 @@
 # Etapa 1: Compilar o uberjar
-# O comentário sobre a imagem clojure foi movido para uma linha separada.
-FROM clojure:openjdk-21-lein as builder
+FROM clojure:openjdk-21-lein-jammy as builder 
 
 WORKDIR /app
 
@@ -13,9 +12,7 @@ RUN lein deps
 RUN lein uberjar
 
 # Etapa 2: Imagem mais leve para rodar
-# O comentário sobre a imagem eclipse-temurin foi movido para uma linha separada.
-FROM eclipse-temurin:21-jre
-
+FROM eclipse-temurin:21.0.3_9-jre 
 WORKDIR /app
 
 # Copiar o uberjar da etapa de build
