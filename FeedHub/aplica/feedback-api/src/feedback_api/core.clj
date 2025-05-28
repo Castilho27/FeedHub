@@ -11,26 +11,34 @@
             [ring.middleware.params :refer [wrap-params]]
             [clojure.string :as str]))
 
+;; Aqui são os átomos, meus estados globais da aplicação.
+;; Eles guardam as salas, as conexões ativas, as conexões WebSocket e os feedbacks.
 (def rooms (atom {}))
 (def active-connections (atom {}))
 (def ws-connections (atom {}))
 (def feedbacks (atom {}))
 
-;; Esta linha não precisa ser modificada para o CORS aberto,
-;; mas ainda é bom ter um valor padrão caso não usem a variável de ambiente.
+;; Essa é a URL do meu frontend. Pego de uma variável de ambiente (bom para produção)
+;; ou uso um valor padrão se não estiver definida. Isso é importante para o CORS!
+;; ATENÇÃO: Para este teste, vamos deixar o CORS aberto (veja mais abaixo).
+;; Após o teste, é CRÍTICO voltar para a configuração segura.
 (def frontend-url (or (System/getenv "FRONTEND_URL") "https://feedhub-omega.vercel.app/"))
 
 
+;; Gero um PIN de 6 dígitos para as salas, bem simples.
 (defn generate-pin []
   (format "%06d" (rand-int 1000000)))
 
+;; Garanto que o PIN gerado é único antes de criar a sala.
 (defn unique-pin []
   (loop [new-pin (generate-pin)]
     (if (contains? @rooms new-pin)
       (recur (generate-pin))
       new-pin)))
 
-;; Responsavel para criação da sala
+;; Essa função cria uma nova sala. Ela gera um PIN único, um UUID para o ID da sala,
+;; registra a hora de criação, inicia a lista de alunos conectados vazia
+;; e define uma pergunta inicial.
 (defn create-room []
   (let [pin (unique-pin)
         room-id (str (java.util.UUID/randomUUID))]
@@ -130,9 +138,10 @@
         is-professor
         (do
           (swap! ws-connections assoc-in [pin "professor"] ws-channel)
-          ;; Envia a pergunta atual para o professor ao conectar
+          ;; Envia a pergunta atual para o professor ao conectar.
           (when-let [current-question (:current-question (get @rooms pin))]
             (httpkit/send! ws-channel (json/write-str {:type "question-update" :question current-question})))
+          ;; Quando o professor desconecta, eu removo a conexão.
           (httpkit/on-close ws-channel (fn [status]
                                          (swap! ws-connections update pin dissoc "professor"))))
 
@@ -140,9 +149,10 @@
         (and pin student-id (get @rooms pin))
         (do
           (swap! ws-connections update pin (fnil assoc {}) student-id ws-channel)
-          ;; Envia a pergunta atual para o aluno ao conectar
+          ;; Envia a pergunta atual para o aluno ao conectar.
           (when-let [current-question (:current-question (get @rooms pin))]
             (httpkit/send! ws-channel (json/write-str {:type "question-update" :question current-question})))
+          ;; Lida com as mensagens recebidas do aluno (por exemplo, se ele enviasse feedback via WS).
           (httpkit/on-receive ws-channel (fn [data]
                                            (try
                                              (let [msg (json/read-str data :key-fn keyword)]
@@ -165,6 +175,7 @@
                                                    (notify-new-feedback pin feedback))))
                                              (catch Exception e
                                                (println "Erro ao processar mensagem WebSocket do aluno:" e)))))
+          ;; Quando o aluno desconecta, eu removo a conexão e atualizo a lista de alunos.
           (httpkit/on-close ws-channel (fn [status]
                                          (swap! ws-connections update pin dissoc student-id)
                                          (remove-student-from-room pin student-id))))
@@ -287,18 +298,29 @@
                   :current-question (:current-question room)})
       (not-found {:status "error"
                   :message "Sala não encontrada"}))))
+
+;; Middleware da minha aplicação. Eles processam as requisições antes que cheguem às rotas.
 (def app
   (-> app-routes
-      (wrap-cors :access-control-allow-origin ["*"]
+
+      ;; ATENÇÃO: Aqui está a configuração CORS aberta para testes.
+      ;; 'access-control-allow-origin "*"' significa que QUALQUER domínio pode fazer requisições.
+      ;; 'access-control-allow-credentials false' é necessário quando a origem é "*".
+      ;; PARA PRODUÇÃO, MUDE ISSO PARA O SEU DOMÍNIO ESPECÍFICO E :access-control-allow-credentials true SE PRECISAR!
+      (wrap-cors :access-control-allow-origin "*" ;; CORRIGIDO AQUI! Não é uma lista.
                  :access-control-allow-methods [:get :post :put :delete :options]
                  :access-control-allow-headers ["Content-Type" "Authorization"]
-                 :access-control-allow-credentials false) ;; ESSA LINHA FOI ALTERADA PARA false
+                 :access-control-allow-credentials false)
+      ;; Estes middlewares convertem o corpo da requisição JSON para keywords Clojure
+      ;; e formatam as respostas como JSON.
       wrap-json-response
       (wrap-json-body {:keywords? true})
+      ;; Este middleware parseia os parâmetros da query string.
       wrap-params))
 
-;; Iniciador
+;; Função principal que inicia o servidor.
+;; Ela exibe as mensagens de inicialização e a URL permitida para CORS.
 (defn -main [& args]
   (println "Servidor iniciado na porta 3001")
-  (println "Frontend URL permitida para CORS:" frontend-url)
+  (println "Frontend URL permitida para CORS (configuração atual):" frontend-url)
   (httpkit/run-server #'app {:port 3001}))
