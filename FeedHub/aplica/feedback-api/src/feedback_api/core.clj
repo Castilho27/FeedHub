@@ -21,7 +21,7 @@
 (def frontend-url (or (System/getenv "FRONTEND_URL") "https://feedhub-omega.vercel.app/"))
 
 
-;; Gero um PIN de 6 dígitos para as salas, bem simples.
+;; Gero um PIN de 6 dígitos para as salas
 (defn generate-pin []
   (format "%06d" (rand-int 1000000)))
 
@@ -72,11 +72,11 @@
 ;; Remove um aluno da lista
 (defn remove-student-from-room [pin student-id]
   (swap! rooms update-in [pin :connected-students]
-                 (fn [students]
-                   (vec (remove #(= student-id (:student-id %)) students))))
+               (fn [students]
+                 (vec (remove #(= student-id (:student-id %)) students))))
   (swap! active-connections update pin
-                 (fn [connections]
-                   (vec (remove #(= student-id (:student-id %)) connections))))
+               (fn [connections]
+                 (vec (remove #(= student-id (:student-id %)) connections))))
   (broadcast-student-list pin))
 
 ;; Envia cada aluno para uma página diferente
@@ -92,7 +92,7 @@
   (when-let [professor-ws (get-in @ws-connections [pin "professor"])]
     (println "Professor encontrado, enviando feedback:" feedback)
     (httpkit/send! professor-ws
-                      (json/write-str {:type "feedback" :data feedback}))))
+                     (json/write-str {:type "feedback" :data feedback}))))
 
 (defn validate-feedback [rating comment]
   (and (integer? rating)
@@ -102,7 +102,7 @@
        (>= (count comment) 2)
        (<= (count comment) 500)))
 
-;; Modificado para aceitar rating e comment separadamente, e incluir o pin 
+;; Modificado para aceitar rating e comment separadamente, e incluir o pin
 (defn add-feedback [pin student-id rating comment]
   (let [feedback {:student-id student-id
                   :rating rating
@@ -129,10 +129,10 @@
         is-professor
         (do
           (swap! ws-connections assoc-in [pin "professor"] ws-channel)
-          ;; Envia a pergunta atual para o professor ao conectar.
+          ;; Envia a pergunta atual para o professor ao conectar
           (when-let [current-question (:current-question (get @rooms pin))]
             (httpkit/send! ws-channel (json/write-str {:type "question-update" :question current-question})))
-          ;; Quando o professor desconecta, eu removo a conexão.
+          ;; Quando o professor desconecta, eu removo a conexão
           (httpkit/on-close ws-channel (fn [status]
                                          (swap! ws-connections update pin dissoc "professor"))))
 
@@ -140,16 +140,16 @@
         (and pin student-id (get @rooms pin))
         (do
           (swap! ws-connections update pin (fnil assoc {}) student-id ws-channel)
-          ;; Envia a pergunta atual para o aluno ao conectar.
+          ;; Envia a pergunta atual para o aluno ao conectar
           (when-let [current-question (:current-question (get @rooms pin))]
             (httpkit/send! ws-channel (json/write-str {:type "question-update" :question current-question})))
-          ;; Lida com as mensagens recebidas do aluno (por exemplo, se ele enviasse feedback via WS).
+          ;; Lida com as mensagens recebidas do aluno (por exemplo, se ele enviasse feedback via WS)
           (httpkit/on-receive ws-channel (fn [data]
                                            (try
                                              (let [msg (json/read-str data :key-fn keyword)]
                                                (cond
                                                  (= (:type msg) "question-update")
-                                                 (if is-professor 
+                                                 (if is-professor
                                                    (let [new-question (:question msg)]
                                                      (println "Recebida question-update do professor para sala" pin ":" new-question)
                                                      (when new-question
@@ -159,8 +159,8 @@
 
                                                  (= (:type msg) "feedback")
                                                  (let [feedback (add-feedback pin student-id
-                                                                               (:rating msg)
-                                                                               (:comment msg))]
+                                                                              (:rating msg)
+                                                                              (:comment msg))]
                                                    (notify-new-feedback pin feedback))))
                                              (catch Exception e
                                                (println "Erro ao processar mensagem WebSocket do aluno:" e)))))
@@ -178,7 +178,7 @@
       :body {:message "API FeedHub - Feedback de Professores"
             :version "1.0.0"}})
 
-  ;; Rota para obter feedbacks: Retorna todos os campos, incluindo pin, rating e comment 
+  ;; Rota para obter feedbacks: Retorna todos os campos, incluindo pin, rating e comment
   (GET "/api/rooms/:pin/feedbacks" [pin]
     (if-let [room-feedbacks (get @feedbacks pin)]
       (response {:feedbacks room-feedbacks})
@@ -247,7 +247,7 @@
         (response {:status "success"
                    :message "Atividade iniciada!"}))
       (not-found {:status "error"
-                  :message "Sala não encontrada"})))
+                   :message "Sala não encontrada"})))
 
 
   (POST "/api/rooms/:pin/students/:student-id/navigate" [pin student-id :as req]
@@ -256,11 +256,11 @@
         (do
           (send-navigate-page pin student-id page)
           (response {:status "success"
-                     :message (str "Solicitada navegação para a página " page " do aluno " student-id)}))
+                      :message (str "Solicitada navegação para a página " page " do aluno " student-id)}))
         (not-found {:status "error"
                     :message "Sala ou aluno não encontrado"}))))
 
-  ;; Rota para enviar feedback 
+  ;; Rota para enviar feedback
   (POST "/api/rooms/:pin/feedback" [pin :as req]
     (let [student-id (get-in req [:body :student-id])
           rating (get-in req [:body :rating])
@@ -289,15 +289,21 @@
 ;; Middleware da minha aplicação. Eles processam as requisições antes que cheguem às rotas.
 (def app
   (-> app-routes
-
-     ;; Fechar a rota depois 
-     ( 
-                 :access-control-allow-methods [:get :post :put :delete :options]
-                 :access-control-allow-headers ["Content-Type" "Authorization"]
-                 :access-control-allow-credentials false)
-      wrap-json-response
+      ;; Processa parâmetros de query e formulário
+      wrap-params
+      ;; Analisa o corpo da requisição JSON
       (wrap-json-body {:keywords? true})
-      wrap-params))
+      ;; Converte o corpo da resposta para JSON
+      wrap-json-response
+      ;; Adiciona os cabeçalhos CORS
+      (wrap-cors
+        {:access-control-allow-origin [
+                                       #"https://feedhub-omega.vercel.app/page2"
+                                       #"http://localhost:3000"
+                                       #"http://localhost:3001"]
+         :access-control-allow-methods [:get :post :put :delete :options]
+         :access-control-allow-headers ["Content-Type" "Authorization"]
+         :access-control-allow-credentials true}))) ; Mantenha este true se seu frontend precisar enviar credenciais (cookies/headers de auth)
 
 (defn -main [& args]
   (println "Servidor iniciado na porta 3001")
