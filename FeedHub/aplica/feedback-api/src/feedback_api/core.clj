@@ -286,7 +286,6 @@
       (not-found {:status "error"
                   :message "Sala não encontrada"}))))
 
-;; Middleware da minha aplicação. Eles processam as requisições antes que cheguem às rotas.
 (def app
   (-> app-routes
       ;; Processa parâmetros de query e formulário
@@ -297,13 +296,13 @@
       wrap-json-response
       ;; Adiciona os cabeçalhos CORS
       (wrap-cors
-        {:access-control-allow-origin [
-                                       #"https://feedhub-omega.vercel.app/page2"
-                                       #"http://localhost:3000"
-                                       #"http://localhost:3001"]
+        {:access-control-allow-origin #{#"https://feedhub-omega.vercel.app"
+                                        #"https://feedhub-omega.vercel.app/page2"
+                                        #"http://localhost:3000"
+                                        #"http://localhost:3001"} 
          :access-control-allow-methods [:get :post :put :delete :options]
          :access-control-allow-headers ["Content-Type" "Authorization"]
-         :access-control-allow-credentials true}))) ; Mantenha este true se seu frontend precisar enviar credenciais (cookies/headers de auth)
+         :access-control-allow-credentials true})))
 
 (defn -main [& args]
   (println "Servidor iniciado na porta 3001")
