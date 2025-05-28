@@ -15,19 +15,25 @@ interface Student {
   avatar_color: string
 }
 
-// --- ADICIONE ESTAS LINHAS AQUI ---
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-// A URL base do frontend para o QR Code (geralmente o próprio domínio do Vercel)
-const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_BASE_URL || 'https://feedhub-theta.vercel.app'; // Use sua URL real do Vercel aqui
+// --- VARIÁVEIS DE AMBIENTE (Configuradas no Vercel para o Frontend) ---
+// Em PRODUÇÃO, 'process.env.NEXT_PUBLIC_API_BASE_URL' será a URL do seu backend Clojure no Vercel.
+// Exemplo (valor real virá do Vercel):
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL; // Ex: "https://seu-backend-feedhub-abc.vercel.app"
 
-// Recomendação: Adicione uma verificação para garantir que a URL esteja definida
+// Em PRODUÇÃO, 'process.env.NEXT_PUBLIC_FRONTEND_BASE_URL' será a URL do seu frontend no Vercel.
+// O fallback "http://localhost:3000" é útil para desenvolvimento local.
+// Exemplo (valor real virá do Vercel):
+const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_BASE_URL || 'http://localhost:3000'; // Ex: "https://feedhub-23tvx8h71-castilho27s-projects.vercel.app"
+
+// Verificações para ajudar no desenvolvimento e depuração
 if (!API_BASE_URL) {
-  console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API podem falhar.");
+  console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API podem falhar. Configure no Vercel.");
+  // Em um cenário real, você pode querer renderizar uma mensagem de erro na UI.
 }
 if (!FRONTEND_BASE_URL) {
-    console.error("Erro: NEXT_PUBLIC_FRONTEND_BASE_URL não está definida! O QR Code pode gerar uma URL inválida.");
+    console.error("Erro: NEXT_PUBLIC_FRONTEND_BASE_URL não está definida! O QR Code pode gerar uma URL inválida. Configure no Vercel.");
 }
-// -------------------------------
+// ------------------------------------------------------------------
 
 // Componente simples de Modal para o QR Code
 const QRModal = ({ url, pin, onClose }: { url: string; pin: string; onClose: () => void }) => {
@@ -133,13 +139,8 @@ export default function GameWaitingRoom() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [roomEntryUrl, setRoomEntryUrl] = useState("");
 
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isConfigModalOpen, setIsConfigModalmOpen] = useState(false);
   const [currentRoomQuestion, setCurrentRoomQuestion] = useState("Qual a sua expectativa para a aula de hoje?"); // Pergunta padrão
-
-
-  // --- REMOVA ESTA LINHA ---
-  // const STUDENT_ENTRY_BASE_URL = "http://localhost:3000/page3";
-
 
   const generateUniqueKey = (student: Student) => {
     return student.student_id
@@ -170,7 +171,7 @@ export default function GameWaitingRoom() {
       return
     }
 
-    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DAS CHAMADAS DE API ---
+    // --- VERIFICAÇÃO ADICIONAL ANTES DA CHAMADA DE API ---
     if (!API_BASE_URL) {
         toast.error('Configuração de API inválida. Contate o suporte.');
         setLoadingStudents(false);
@@ -181,7 +182,7 @@ export default function GameWaitingRoom() {
     setLoadingStudents(true)
     setError(null)
     try {
-      // --- MODIFIQUE ESTA LINHA ---
+      // --- USANDO API_BASE_URL ---
       const res = await fetch(`${API_BASE_URL}/api/rooms/${urlPin}/panel`, {
       // --------------------------
         method: "GET",
@@ -249,7 +250,7 @@ export default function GameWaitingRoom() {
 
     setPin(urlPin.replace(/(\d{3})(\d{3})/, "$1 $2"))
 
-    // --- MODIFIQUE ESTA LINHA PARA USAR FRONTEND_BASE_URL ---
+    // --- USANDO FRONTEND_BASE_URL PARA O QR CODE ---
     if (!FRONTEND_BASE_URL) {
         console.error("Erro: FRONTEND_BASE_URL não está definida para gerar URL do QR Code.");
         setError("Erro de configuração. Contate o suporte.");
@@ -258,7 +259,7 @@ export default function GameWaitingRoom() {
     setRoomEntryUrl(`${FRONTEND_BASE_URL}/page3?pin=${encodeURIComponent(urlPin)}`);
     // -----------------------------------------------------------
 
-    // --- MODIFIQUE ESTA LINHA PARA USAR API_BASE_URL ---
+    // --- USANDO API_BASE_URL PARA O WEBSOCKET ---
     if (!API_BASE_URL) {
         console.error("Erro: API_BASE_URL não está definida para conexão WebSocket.");
         setError("Erro de configuração. Contate o suporte.");
@@ -267,9 +268,12 @@ export default function GameWaitingRoom() {
     // Para WebSocket, você precisa determinar se é http ou https.
     // Assumindo que se a API_BASE_URL é https, o WebSocket também é wss.
     const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
-    const wsUrl = `${wsProtocol}://${API_BASE_URL.split('//')[1]}/ws/rooms/${urlPin}?student_id=professor`;
-    const ws = new WebSocket(wsUrl);
+    // Remove o "http://" ou "https://" da API_BASE_URL para construir a URL do WebSocket
+    const wsHost = API_BASE_URL.split('//')[1];
+    const wsUrl = `${wsProtocol}://${wsHost}/ws/rooms/${urlPin}?student_id=professor`;
     // ---------------------------------------------------
+
+    const ws = new WebSocket(wsUrl);
     webSocketRef.current = ws
 
     ws.onopen = () => {
@@ -309,14 +313,14 @@ export default function GameWaitingRoom() {
   }, [urlPin, fetchInitialConnectedStudents, sendQuestionToStudents, FRONTEND_BASE_URL, API_BASE_URL]) // Adicione FRONTEND_BASE_URL e API_BASE_URL como dependências
 
   const handleStartActivity = async () => {
-    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DAS CHAMADAS DE API ---
+    // --- VERIFICAÇÃO ADICIONAL ANTES DA CHAMADA DE API ---
     if (!API_BASE_URL) {
         toast.error('Configuração de API inválida. Contate o suporte.');
         return;
     }
     // -----------------------------------------------------------
     try {
-      // --- MODIFIQUE ESTA LINHA ---
+      // --- USANDO API_BASE_URL ---
       const res = await fetch(`${API_BASE_URL}/api/rooms/${urlPin}/start`, {
       // --------------------------
         method: "POST",
@@ -367,11 +371,11 @@ export default function GameWaitingRoom() {
 
   // Funções para o Modal de Configuração
   const handleOpenConfigModal = () => {
-    setIsConfigModalOpen(true);
+    setIsConfigModalmOpen(true);
   };
 
   const handleCloseConfigModal = () => {
-    setIsConfigModalOpen(false);
+    setIsConfigModalmOpen(false);
   };
 
   const handleSaveConfigQuestion = (question: string) => {
