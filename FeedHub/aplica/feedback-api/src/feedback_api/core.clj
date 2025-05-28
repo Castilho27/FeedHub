@@ -11,17 +11,13 @@
             [ring.middleware.params :refer [wrap-params]]
             [clojure.string :as str]))
 
-;; Aqui são os átomos, meus estados globais da aplicação.
-;; Eles guardam as salas, as conexões ativas, as conexões WebSocket e os feedbacks.
+
 (def rooms (atom {}))
 (def active-connections (atom {}))
 (def ws-connections (atom {}))
 (def feedbacks (atom {}))
 
-;; Essa é a URL do meu frontend. Pego de uma variável de ambiente (bom para produção)
-;; ou uso um valor padrão se não estiver definida. Isso é importante para o CORS!
-;; ATENÇÃO: Para este teste, vamos deixar o CORS aberto (veja mais abaixo).
-;; Após o teste, é CRÍTICO voltar para a configuração segura.
+
 (def frontend-url (or (System/getenv "FRONTEND_URL") "https://feedhub-omega.vercel.app/"))
 
 
@@ -36,9 +32,6 @@
       (recur (generate-pin))
       new-pin)))
 
-;; Essa função cria uma nova sala. Ela gera um PIN único, um UUID para o ID da sala,
-;; registra a hora de criação, inicia a lista de alunos conectados vazia
-;; e define uma pergunta inicial.
 (defn create-room []
   (let [pin (unique-pin)
         room-id (str (java.util.UUID/randomUUID))]
@@ -109,7 +102,7 @@
        (>= (count comment) 2)
        (<= (count comment) 500)))
 
-;; Modificado para aceitar rating e comment separadamente, e incluir o pin (sem mudanças)
+;; Modificado para aceitar rating e comment separadamente, e incluir o pin 
 (defn add-feedback [pin student-id rating comment]
   (let [feedback {:student-id student-id
                   :rating rating
@@ -119,8 +112,6 @@
                   :timestamp (coerce/to-long (time/now))}]
     (swap! feedbacks update pin (fnil conj []) feedback)
     feedback))
-
-;; Manipulador de WebSocket (sem mudanças)
 (defn ws-handler [request]
   (println "Nova conexão WebSocket recebida")
   (httpkit/with-channel request ws-channel
@@ -156,10 +147,9 @@
           (httpkit/on-receive ws-channel (fn [data]
                                            (try
                                              (let [msg (json/read-str data :key-fn keyword)]
-                                               ;; Lida com a mensagem de atualização de pergunta
                                                (cond
                                                  (= (:type msg) "question-update")
-                                                 (if is-professor ;; Apenas professor pode enviar essa atualização
+                                                 (if is-professor 
                                                    (let [new-question (:question msg)]
                                                      (println "Recebida question-update do professor para sala" pin ":" new-question)
                                                      (when new-question
@@ -168,7 +158,6 @@
                                                    (println "Tentativa não autorizada de 'question-update' de aluno:" student-id))
 
                                                  (= (:type msg) "feedback")
-                                                 ;; Se o aluno enviar feedback via WS (o que não acontece atualmente no seu frontend)
                                                  (let [feedback (add-feedback pin student-id
                                                                                (:rating msg)
                                                                                (:comment msg))]
@@ -179,8 +168,6 @@
           (httpkit/on-close ws-channel (fn [status]
                                          (swap! ws-connections update pin dissoc student-id)
                                          (remove-student-from-room pin student-id))))
-
-        ;; Erro
         :else
         (do
           (httpkit/send! ws-channel (json/write-str {:error "Credenciais inválidas"}))
@@ -191,7 +178,7 @@
       :body {:message "API FeedHub - Feedback de Professores"
             :version "1.0.0"}})
 
-  ;; Rota para obter feedbacks: Retorna todos os campos, incluindo pin, rating e comment (sem mudanças)
+  ;; Rota para obter feedbacks: Retorna todos os campos, incluindo pin, rating e comment 
   (GET "/api/rooms/:pin/feedbacks" [pin]
     (if-let [room-feedbacks (get @feedbacks pin)]
       (response {:feedbacks room-feedbacks})
@@ -262,7 +249,7 @@
       (not-found {:status "error"
                   :message "Sala não encontrada"})))
 
-  ;; NOVO ENDPOINT: Forçar navegação do aluno para uma página (sem mudanças)
+
   (POST "/api/rooms/:pin/students/:student-id/navigate" [pin student-id :as req]
     (let [page (get-in req [:body :page])]
       (if (and (get @rooms pin) (get-in @ws-connections [pin student-id]))
@@ -273,7 +260,7 @@
         (not-found {:status "error"
                     :message "Sala ou aluno não encontrado"}))))
 
-  ;; Rota para enviar feedback - AGORA COM RATING E COMMENT SEPARADOS (sem mudanças)
+  ;; Rota para enviar feedback 
   (POST "/api/rooms/:pin/feedback" [pin :as req]
     (let [student-id (get-in req [:body :student-id])
           rating (get-in req [:body :rating])
@@ -303,23 +290,15 @@
 (def app
   (-> app-routes
 
-      ;; ATENÇÃO: Aqui está a configuração CORS aberta para testes.
-      ;; 'access-control-allow-origin "*"' significa que QUALQUER domínio pode fazer requisições.
-      ;; 'access-control-allow-credentials false' é necessário quando a origem é "*".
-      ;; PARA PRODUÇÃO, MUDE ISSO PARA O SEU DOMÍNIO ESPECÍFICO E :access-control-allow-credentials true SE PRECISAR!
-      (wrap-cors :access-control-allow-origin "*" ;; CORRIGIDO AQUI! Não é uma lista.
+     ;; Fechar a rota depois 
+     ( 
                  :access-control-allow-methods [:get :post :put :delete :options]
                  :access-control-allow-headers ["Content-Type" "Authorization"]
                  :access-control-allow-credentials false)
-      ;; Estes middlewares convertem o corpo da requisição JSON para keywords Clojure
-      ;; e formatam as respostas como JSON.
       wrap-json-response
       (wrap-json-body {:keywords? true})
-      ;; Este middleware parseia os parâmetros da query string.
       wrap-params))
 
-;; Função principal que inicia o servidor.
-;; Ela exibe as mensagens de inicialização e a URL permitida para CORS.
 (defn -main [& args]
   (println "Servidor iniciado na porta 3001")
   (println "Frontend URL permitida para CORS (configuração atual):" frontend-url)
