@@ -11,7 +11,6 @@
                  [cheshire "5.11.0"]
                  [clj-time "0.15.2"]
                  [ring-cors "0.1.13"]
-                 [instaparse "1.4.12"]
                  [org.clojure/data.json "2.5.0"]] ;; ← devolvido aqui!
   :main feedback-api.core
   :uberjar-name "feedback-api-standalone.jar"
