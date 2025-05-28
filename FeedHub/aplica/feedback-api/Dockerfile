@@ -1,5 +1,5 @@
 # Etapa 1: Compilar o projeto
-FROM clojure:temurin-17-tools-deps-slim as builder
+FROM clojure:tools-deps-1.11.1.1165-temurin-17-slim-jammy as builder
 
 WORKDIR /app
 COPY . .
@@ -7,7 +7,7 @@ COPY . .
 RUN lein uberjar
 
 # Etapa 2: Imagem final leve e atualizada
-FROM openjdk:17.0.8-jdk-slim
+FROM openjdk:17-jdk-slim-bullseye
 
 WORKDIR /app
 
