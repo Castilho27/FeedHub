@@ -1,22 +1,38 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react'; // Importe Suspense aqui
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 
-// --- ADICIONE ESTAS LINHAS AQUI ---
+// --- VARIÁVEIS DE AMBIENTE ---
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-// Recomendação: Adicione uma verificação para garantir que a URL esteja definida
 if (!API_BASE_URL) {
   console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API e conexões WebSocket podem falhar.");
 }
 // -------------------------------
 
-export default function FeedbackPage() {
-  const searchParams = useSearchParams();
+// Componente Wrapper para lidar com o Suspense
+// Exportamos este como o default para a página
+export default function FeedbackPageWrapper() {
+  return (
+    // O fallback é o que será exibido enquanto o componente interno está carregando.
+    // É importante para uma experiência de usuário suave.
+    <Suspense fallback={
+        <div className="h-screen flex items-center justify-center text-xl text-gray-600">
+            Carregando página de feedback...
+        </div>
+    }>
+      <FeedbackPageContent /> {/* Nosso componente real com a lógica */}
+    </Suspense>
+  );
+}
+
+// Componente que contém toda a lógica e o JSX da sua página de feedback
+function FeedbackPageContent() {
+  const searchParams = useSearchParams(); // useSearchParams() agora está seguro aqui!
   const router = useRouter();
 
   const pin = searchParams.get('pin') || '';
@@ -31,7 +47,7 @@ export default function FeedbackPage() {
   const webSocketRef = useRef<WebSocket | null>(null);
 
   // NOVO: console.log para ver o valor inicial e em cada render
-  console.log("FeedbackPage renderizada. roomQuestion atual:", roomQuestion);
+  console.log("FeedbackPageContent renderizada. roomQuestion atual:", roomQuestion);
 
   useEffect(() => {
     // NOVO: console.log para ver o valor de pin e studentId no useEffect
@@ -55,12 +71,11 @@ export default function FeedbackPage() {
     // Para WebSocket, você precisa determinar se é http ou https.
     // Assumindo que se a API_BASE_URL é https, o WebSocket também é wss.
     const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
-    const wsUrl = `${wsProtocol}://${API_BASE_URL.split('//')[1]}/ws/rooms/${pin}?student_id=${studentId}`;
+    const wsHost = API_BASE_URL.split('//')[1]; // Remove "http://" or "https://"
+    const wsUrl = `${wsProtocol}://${wsHost}/ws/rooms/${pin}?student_id=${studentId}`;
     // ---------------------------------------------------
 
-    // --- MODIFIQUE ESTA LINHA ---
     const ws = new WebSocket(wsUrl);
-    // --------------------------
     webSocketRef.current = ws;
 
     ws.onopen = () => {
@@ -96,7 +111,7 @@ export default function FeedbackPage() {
         webSocketRef.current.close();
       }
     };
-  }, [pin, studentId, router, initialQuestion]); // Adicionado initialQuestion e API_BASE_URL como dependências
+  }, [pin, studentId, router, initialQuestion, API_BASE_URL]); // Adicionado initialQuestion e API_BASE_URL como dependências
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,17 +121,13 @@ export default function FeedbackPage() {
       if (!pin) throw new Error('PIN da sala inválido');
       if (!studentId) throw new Error('ID do estudante não encontrado');
 
-      // --- ADICIONE ESTA VERIFICAÇÃO ANTES DA CHAMADA DE API ---
       if (!API_BASE_URL) {
         toast.error('Configuração de API inválida. Contate o suporte.');
         setIsLoading(false); // Reseta o estado de carregamento
         return;
       }
-      // -----------------------------------------------------------
 
-      // --- MODIFIQUE ESTA LINHA ---
       const response = await fetch(`${API_BASE_URL}/api/rooms/${pin}/feedback`, {
-      // --------------------------
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

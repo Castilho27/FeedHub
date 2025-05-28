@@ -1,16 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react"; // Importe Suspense aqui
 import { useSearchParams } from "next/navigation";
 import { LogoPlace } from "@/components/logo-place";
-import FeedbackCard from "@/components/feedback-card"; // Importe o FeedbackCard
+import FeedbackCard from "@/components/feedback-card";
 import { Download, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// --- ADICIONE ESTAS LINHAS AQUI ---
+// --- VARIÁVEIS DE AMBIENTE ---
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-// Recomendação: Adicione uma verificação para garantir que a URL esteja definida
 if (!API_BASE_URL) {
   console.error("Erro: NEXT_PUBLIC_API_BASE_URL não está definida! As chamadas de API e conexões WebSocket podem falhar.");
 }
@@ -20,12 +19,28 @@ interface Feedback {
   studentId: string;
   message: string;
   timestamp: number;
-  rating?: number; // Este campo deve conter a nota
-  pin?: string;    // O pin ainda pode vir, mas não será o valor principal da bolinha
+  rating?: number;
+  pin?: string;
 }
 
-export default function StudentFeedbackDashboard() {
-  const searchParams = useSearchParams();
+// Componente Wrapper para lidar com o Suspense
+// Exportamos este como o default para a página
+export default function StudentFeedbackDashboardWrapper() {
+  return (
+    // O fallback será exibido enquanto o componente interno está carregando.
+    <Suspense fallback={
+        <div className="h-screen flex items-center justify-center text-xl text-gray-600">
+            Carregando painel de feedbacks...
+        </div>
+    }>
+      <StudentFeedbackDashboardContent /> {/* Nosso componente real com a lógica */}
+    </Suspense>
+  );
+}
+
+// Componente que contém toda a lógica e o JSX da sua página de dashboard
+function StudentFeedbackDashboardContent() {
+  const searchParams = useSearchParams(); // useSearchParams() agora está seguro aqui!
   const pin = searchParams.get("pin") || "";
 
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
@@ -34,23 +49,28 @@ export default function StudentFeedbackDashboard() {
 
   // Busca feedbacks do back-end via REST
   useEffect(() => {
-    if (!pin) return;
+    if (!pin) {
+        // Se o PIN não estiver presente, pode ser um erro ou o professor ainda não selecionou a sala.
+        // Você pode adicionar um tratamento de erro ou redirecionamento aqui, se necessário.
+        console.warn("PIN da sala não encontrado na URL para o dashboard de feedbacks.");
+        setError("PIN da sala ausente. Por favor, acesse esta página através do painel do professor.");
+        return;
+    }
 
-    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DA CHAMADA DE API ---
     if (!API_BASE_URL) {
       setError("Configuração de API inválida. Contate o suporte.");
       return;
     }
-    // -----------------------------------------------------------
 
     const fetchFeedbacks = async () => {
       setLoading(true);
       setError("");
       try {
-        // --- MODIFIQUE ESTA LINHA ---
         const response = await fetch(`${API_BASE_URL}/api/rooms/${pin}/feedbacks`);
-        // --------------------------
-        if (!response.ok) throw new Error(`Aguardando Feedbacks:`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Aguardando Feedbacks: ${errorData.message || 'Erro desconhecido'}`);
+        }
 
         const data = await response.json();
         setFeedbacks(data.feedbacks || []);
@@ -62,34 +82,28 @@ export default function StudentFeedbackDashboard() {
     };
 
     fetchFeedbacks();
-  }, [pin]); // Adicione API_BASE_URL como dependência se `fetchFeedbacks` usar diretamente o estado de `API_BASE_URL` ou se houver um `toast.error`
+  }, [pin, API_BASE_URL]); // Adicione API_BASE_URL como dependência
 
   // WebSocket para receber feedbacks em tempo real
   useEffect(() => {
     if (!pin) return;
 
-    // --- ADICIONE ESTA VERIFICAÇÃO ANTES DA CONEXÃO WS ---
     if (!API_BASE_URL) {
         console.error("Erro: API_BASE_URL não está definida para conexão WebSocket.");
         return;
     }
 
-    // Para WebSocket, você precisa determinar se é http ou https.
-    // Assumindo que se a API_BASE_URL é https, o WebSocket também é wss.
     const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
-    const wsUrl = `${wsProtocol}://${API_BASE_URL.split('//')[1]}/ws/rooms/${pin}`;
-    // ---------------------------------------------------
+    const wsHost = API_BASE_URL.split('//')[1];
+    const wsUrl = `${wsProtocol}://${wsHost}/ws/rooms/${pin}`;
 
-    // --- MODIFIQUE ESTA LINHA ---
     const socket = new WebSocket(wsUrl);
-    // --------------------------
 
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === "feedback") {
           setFeedbacks((prev) => {
-            // Evita duplicados com base em studentId + timestamp
             if (
               prev.some(
                 (fb) => fb.studentId === message.data.studentId && fb.timestamp === message.data.timestamp
@@ -114,7 +128,7 @@ export default function StudentFeedbackDashboard() {
     };
 
     return () => socket.close();
-  }, [pin]); // Adicione API_BASE_URL como dependência
+  }, [pin, API_BASE_URL]); // Adicione API_BASE_URL como dependência
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white">

@@ -38,29 +38,29 @@ const [roomPin, setRoomPin] = useState<string | null>(null);
 const router = useRouter();
 const searchParams = useSearchParams(); // useSearchParams() agora está seguro aqui!
 
-  const avatarColors = [
-    "#FF7043", "#FFA726", "#FFCA28", "#FFEE58",
-    "#9CCC65", "#66BB6A", "#26A69A", "#26C6DA",
-    "#29B6F6", "#42A5F5", "#5C6BC0", "#7E57C2",
-    "#AB47BC", "#EC407A", "#EF5350",
-    "#8D6E63", "#78909C", "#A8CFF5"
-  ];
+ const avatarColors = [
+"#FF7043", "#FFA726", "#FFCA28", "#FFEE58",
+"#9CCC65", "#66BB6A", "#26A69A", "#26C6DA",
+"#29B6F6", "#42A5F5", "#5C6BC0", "#7E57C2",
+"#AB47BC", "#EC407A", "#EF5350",
+"#8D6E63", "#78909C", "#A8CFF5"
+ ];
 
-  useEffect(() => {
-    const pinParam = searchParams.get('pin');
-    if (pinParam) {
-      setRoomPin(pinParam);
-      console.log('PIN recebido na page3 (LoginPageContent):', pinParam);
-    } else {
-      // alert('PIN da sala não encontrado. Por favor, digite o PIN na página principal.');
+useEffect(() => {
+ const pinParam = searchParams.get('pin');
+ if (pinParam) {
+ setRoomPin(pinParam);
+ console.log('PIN recebido na page3 (LoginPageContent):', pinParam);
+ } else {
+
       toast.error('PIN da sala não encontrado. Redirecionando para a página inicial.');
-      router.push('/');
-    }
-  }, [searchParams, router]); // searchParams e router são dependências
+router.push('/');
+}
+}, [searchParams, router]); // searchParams e router são dependências
 
-  const handleNameInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setUserName(event.target.value);
-  };
+const handleNameInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+setUserName(event.target.value);
+};
 
   const handleProceed = async () => {
     if (userName.trim() === "") {
@@ -88,18 +88,18 @@ const searchParams = useSearchParams(); // useSearchParams() agora está seguro 
     const studentId = Math.random().toString(36).substring(2, 15);
     console.log('Student ID gerado:', studentId);
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/rooms/${roomPin}/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          student_id: studentId,
-          name: userName.trim(),
-          avatar_color: chosenColor
-        })
-      });
+try {
+const res = await fetch(`${API_BASE_URL}/api/rooms/${roomPin}/join`, {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json'
+ },
+body: JSON.stringify({
+student_id: studentId,
+name: userName.trim(),
+avatar_color: chosenColor
+})
+});
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -115,27 +115,27 @@ const searchParams = useSearchParams(); // useSearchParams() agora está seguro 
 
       router.push(`/page4?name=${encodeURIComponent(userName.trim())}&pin=${encodeURIComponent(roomPin)}&color=${encodeURIComponent(chosenColor)}&student_id=${encodeURIComponent(studentId)}`);
 
-    } catch (error) {
-      console.error('Erro na comunicação com o servidor ao entrar na sala:', error);
-      // alert('Erro de rede ao tentar entrar na sala. Tente novamente.');
+} catch (error) {
+console.error('Erro na comunicação com o servidor ao entrar na sala:', error);
+
       toast.error('Erro de rede ao tentar entrar na sala. Tente novamente.');
-    }
-  };
+}
+};
 
-  return (
-    <div className="min-h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden">
-      <div className="absolute inset-0 -z-10">
-        <Image
-          src="/Images/Fundo1.png"
-          alt="Background"
-          fill
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-sky-50/80"></div>
-      </div>
+return (
+<div className="min-h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden">
+<div className="absolute inset-0 -z-10">
+ <Image
+ src="/Images/Fundo1.png"
+ alt="Background"
+ fill
+ className="object-cover"
+ />
+ <div className="absolute inset-0 bg-sky-50/80"></div>
+</div>
 
-      <div className="z-10 w-full max-w-md px-8 py-12 flex flex-col items-center">
-        <div className="flex justify-center mb-6">
+<div className="z-10 w-full max-w-md px-8 py-12 flex flex-col items-center">
+ <div className="flex justify-center mb-6">
  <div className="w-48 h-auto relative">
 <Image
  src="/Images/logo1.png"
