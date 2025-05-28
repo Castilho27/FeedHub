@@ -288,13 +288,9 @@
 
 (def app
   (-> app-routes
-      ;; Processa parâmetros de query e formulário
       wrap-params
-      ;; Analisa o corpo da requisição JSON
       (wrap-json-body {:keywords? true})
-      ;; Converte o corpo da resposta para JSON
       wrap-json-response
-      ;; Adiciona os cabeçalhos CORS
       (wrap-cors
         {:access-control-allow-origin #{#"https://feedhub-omega.vercel.app"
                                         #"https://feedhub-omega.vercel.app/page2"
@@ -307,4 +303,4 @@
 (defn -main [& args]
   (println "Servidor iniciado na porta 3001")
   (println "Frontend URL permitida para CORS (configuração atual):" frontend-url)
-  (httpkit/run-server #'app {:port 3001}))
+  (httpkit/run-server #'app {:port port}))
