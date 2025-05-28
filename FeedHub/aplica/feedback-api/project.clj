@@ -1,6 +1,6 @@
 (defproject feedback-api "0.1.0-SNAPSHOT"
   :description "Backend em Clojure para coleta de feedbacks via PIN, com REST e WebSockets"
-  :url "https://github.com/Castilho27/FeedHub"
+  :url "https://github.com/Castilho27/feedhub"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.11.1"]
@@ -11,7 +11,8 @@
                  [cheshire "5.11.0"]
                  [clj-time "0.15.2"]
                  [ring-cors "0.1.13"]
-                 [instaparse "1.4.12"]]
+                 [instaparse "1.4.12"]
+                 [org.clojure/data.json "2.5.0"]] ;; ← devolvido aqui!
   :main feedback-api.core
   :uberjar-name "feedback-api-standalone.jar"
   :target-path "target/%s"
