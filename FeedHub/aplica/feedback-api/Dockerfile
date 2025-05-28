@@ -1,7 +1,5 @@
 # Etapa 1: Compilar o projeto
 FROM clojure:tools-deps-temurin-17-slim as builder
-# Ou a tag exata que você confirmou no Docker Hub agora.
-# Exemplo de alternativa: FROM clojure:tools-deps-1.11.1.1165-temurin-17-slim-jammy as builder
 
 WORKDIR /app
 COPY . .
@@ -9,9 +7,7 @@ COPY . .
 RUN lein uberjar
 
 # Etapa 2: Imagem final leve e atualizada
-FROM openjdk:17-jdk-slim
-# Ou a tag exata que você confirmou no Docker Hub agora.
-# Exemplo de alternativa: FROM openjdk:17-jdk-slim-bullseye
+FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
