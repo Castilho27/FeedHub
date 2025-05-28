@@ -17,13 +17,6 @@
 (def ws-connections (atom {}))
 (def feedbacks (atom {})) ; Armazena {pin-da-sala => [{:student-id "123", :rating 8, :comment "Texto", :pin "123456", :timestamp long}]}
 
-;; Define a URL do frontend a partir da variável de ambiente
-;; Se a variável não estiver definida (ex: em ambiente de desenvolvimento local),
-;; ele usará "https://feedhub-theta.vercel.app/" como fallback.
-;; IMPORTANTE: MANTEMOS O FALLBACK PARA FACILITAR O DESENVOLVIMENTO LOCAL.
-;; É crucial que na produção você defina a variável de ambiente FRONTEND_URL
-;; para o seu domínio real de produção, e não deixar o fallback apontar para produção.
-;; Se quiser que em desenvolvimento local aponte para localhost, o fallback deve ser http://localhost:3000
 (def frontend-url (or (System/getenv "FRONTEND_URL") "https://feedhub-theta.vercel.app/"))
 
 ;; Funções de utilidade para PIN (sem mudanças)
@@ -182,12 +175,6 @@
         (do
           (httpkit/send! ws-channel (json/write-str {:error "Credenciais inválidas"}))
           (httpkit/close ws-channel))))))
-
----
-
-### **Rotas da API**
-
-```clojure
 (defroutes app-routes
   (GET "/" []
     {:status 200
@@ -301,16 +288,10 @@
                   :current-question (:current-question room)})
       (not-found {:status "error"
                   :message "Sala não encontrada"}))))
-
----
-
-### **Middleware e Função Principal Corrigidos**
-
-```clojure
 ;; Middleware
 (def app
   (-> app-routes
-      ;; --- MODIFICAÇÃO IMPORTANTE AQUI ---
+     
       ;; Agora, 'frontend-url' é usada para criar um padrão de regex
       ;; que permite requisições CORS vindas da URL do seu frontend.
       ;; wrap-cors aceita uma lista de strings ou regex patterns.
@@ -318,7 +299,6 @@
                  :access-control-allow-methods [:get :post :put :delete :options]
                  :access-control-allow-headers ["Content-Type" "Authorization"]
                  :access-control-allow-credentials true)
-      ;; --- FIM DA MODIFICAÇÃO ---
       wrap-json-response
       (wrap-json-body {:keywords? true})
       wrap-params))
