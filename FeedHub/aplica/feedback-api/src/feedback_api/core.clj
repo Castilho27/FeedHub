@@ -230,6 +230,10 @@
                   :connections (count (get @active-connections pin []))})
       (not-found {:status "error"
                   :message "Sala não encontrada"})))
+      
+  (GET "/healthz" []
+  {:status 200
+   :body "OK"})
 
   (GET "/api/rooms/:pin/panel" [pin]
     (if-let [room (get @rooms pin)]
